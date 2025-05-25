@@ -1,0 +1,907 @@
+openapi: 3.0.0
+info:
+  title: Planter API
+  description: API for the Planter application
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+tags:
+  - name: Auth
+    description: Authentication operations
+  - name: Users
+    description: User operations
+  - name: Plants
+    description: Plant operations
+  - name: Shops
+    description: Shop operations
+  - name: Recommendations
+    description: Plant recommendation operations
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Login
+      description: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/register:
+    post:
+      tags:
+        - Auth
+      summary: Register
+      description: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/{userId}:
+    get:
+      tags:
+        - Users
+      summary: Get user
+      description: Get a user by ID
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Users
+      summary: Update user
+      description: Update a user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plants:
+    get:
+      tags:
+        - Plants
+      summary: Get all plants
+      description: Get all plants
+      responses:
+        '200':
+          description: Plants found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plant'
+
+  /plants/{plantId}:
+    get:
+      tags:
+        - Plants
+      summary: Get plant
+      description: Get a plant by ID
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Plant found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '404':
+          description: Plant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plants/search:
+    get:
+      tags:
+        - Plants
+      summary: Search plants
+      description: Search for plants by query
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Plants found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plant'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plants/favorites:
+    get:
+      tags:
+        - Plants
+      summary: Get favorite plants
+      description: Get a user's favorite plants
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plants found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plant'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plants/{plantId}/favorite:
+    post:
+      tags:
+        - Plants
+      summary: Add to favorites
+      description: Add a plant to a user's favorites
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Added to favorites
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Plants
+      summary: Remove from favorites
+      description: Remove a plant from a user's favorites
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Removed from favorites
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plants/{plantId}/water:
+    post:
+      tags:
+        - Plants
+      summary: Mark as watered
+      description: Mark a plant as watered
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Marked as watered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plants/user:
+    get:
+      tags:
+        - Plants
+      summary: Get user plants
+      description: Get all plants owned by a user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plants found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plant'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /plants/user/{plantId}:
+    post:
+      tags:
+        - Plants
+      summary: Add user plant
+      description: Add a plant to a user's collection
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                location:
+                  type: string
+              required:
+                - location
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plant added to collection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Plants
+      summary: Update user plant
+      description: Update a user's plant
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                location:
+                  type: string
+              required:
+                - location
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plant updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Plants
+      summary: Remove user plant
+      description: Remove a plant from a user's collection
+      parameters:
+        - name: plantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plant removed from collection
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Plant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /shops:
+    get:
+      tags:
+        - Shops
+      summary: Get all shops
+      description: Get all shops
+      responses:
+        '200':
+          description: Shops found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Shop'
+
+  /shops/{shopId}:
+    get:
+      tags:
+        - Shops
+      summary: Get shop
+      description: Get a shop by ID
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Shop found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Shop'
+        '404':
+          description: Shop not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /shops/{shopId}/plants:
+    get:
+      tags:
+        - Shops
+      summary: Get shop plants
+      description: Get all plants from a shop
+      parameters:
+        - name: shopId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Plants found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plant'
+        '404':
+          description: Shop not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /recommendations/questionnaire:
+    post:
+      tags:
+        - Recommendations
+      summary: Save questionnaire
+      description: Save a plant questionnaire
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionnaireRequest'
+      responses:
+        '201':
+          description: Questionnaire saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantQuestionnaire'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /recommendations/questionnaire/{questionnaireId}:
+    get:
+      tags:
+        - Recommendations
+      summary: Get recommendations
+      description: Get plant recommendations based on a questionnaire
+      parameters:
+        - name: questionnaireId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Recommendations found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plant'
+        '404':
+          description: Questionnaire not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+      required:
+        - email
+        - password
+
+    RegisterRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+      required:
+        - name
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        profileImageUrl:
+          type: string
+          nullable: true
+        locations:
+          type: array
+          items:
+            type: string
+        favoritePlantIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        ownedPlantIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        language:
+          type: string
+          enum:
+            - RUSSIAN
+            - ENGLISH
+        notificationsEnabled:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CareInstructions:
+      type: object
+      properties:
+        wateringFrequency:
+          type: integer
+          description: Watering frequency in days
+        sunlight:
+          type: string
+          enum:
+            - LOW
+            - MEDIUM
+            - HIGH
+        temperature:
+          type: object
+          properties:
+            min:
+              type: integer
+            max:
+              type: integer
+        humidity:
+          type: string
+          enum:
+            - LOW
+            - MEDIUM
+            - HIGH
+        soilType:
+          type: string
+        fertilizerFrequency:
+          type: integer
+          description: Fertilizer frequency in days
+        additionalNotes:
+          type: string
+
+    Plant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        scientificName:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+        careInstructions:
+          $ref: '#/components/schemas/CareInstructions'
+        price:
+          type: number
+          nullable: true
+        shopId:
+          type: string
+          format: uuid
+          nullable: true
+        isFavorite:
+          type: boolean
+        location:
+          type: string
+          nullable: true
+        lastWatered:
+          type: string
+          format: date-time
+          nullable: true
+        nextWatering:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Shop:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        rating:
+          type: number
+          format: float
+        imageUrl:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    QuestionnaireRequest:
+      type: object
+      properties:
+        sunlightPreference:
+          type: string
+          enum:
+            - LOW
+            - MEDIUM
+            - HIGH
+        petFriendly:
+          type: boolean
+        careLevel:
+          type: integer
+          minimum: 1
+          maximum: 5
+        preferredLocation:
+          type: string
+          nullable: true
+        additionalPreferences:
+          type: string
+          nullable: true
+      required:
+        - sunlightPreference
+        - petFriendly
+        - careLevel
+
+    PlantQuestionnaire:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+          nullable: true
+        sunlightPreference:
+          type: string
+          enum:
+            - LOW
+            - MEDIUM
+            - HIGH
+        petFriendly:
+          type: boolean
+        careLevel:
+          type: integer
+          minimum: 1
+          maximum: 5
+        preferredLocation:
+          type: string
+          nullable: true
+        additionalPreferences:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
