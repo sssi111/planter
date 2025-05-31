@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/anpanovv/planter/internal/models"
 	"github.com/google/uuid"
@@ -213,4 +215,51 @@ func TestPlantService_GetPlant(t *testing.T) {
 
 	// Verify that all expectations were met
 	mockPlantRepo.AssertExpectations(t)
+}
+
+func TestPlantService_MarkAsWatered_NotInCollection(t *testing.T) {
+	// Create mock repository
+	mockRepo := new(MockPlantRepository)
+
+	// Create service
+	service := NewPlantService(mockRepo)
+
+	// Test data
+	ctx := context.Background()
+	userID := uuid.New()
+	plantID := uuid.New()
+	now := time.Now()
+
+	plant := &models.Plant{
+		ID:   plantID,
+		Name: "Test Plant",
+	}
+
+	userPlant := &models.UserPlant{
+		UserID:       userID,
+		PlantID:      plantID,
+		LastWatered:  &now,
+		NextWatering: &now,
+	}
+
+	// Set up expectations
+	mockRepo.On("GetByID", ctx, plantID).Return(plant, nil)
+	mockRepo.On("GetUserPlant", ctx, userID, plantID).Return(nil, fmt.Errorf("not found"))
+	mockRepo.On("AddUserPlant", ctx, mock.MatchedBy(func(up *models.UserPlant) bool {
+		return up.UserID == userID && up.PlantID == plantID
+	})).Return(nil)
+	mockRepo.On("MarkAsWatered", ctx, userID, plantID).Return(nil)
+	mockRepo.On("GetUserPlant", ctx, userID, plantID).Return(userPlant, nil)
+	mockRepo.On("IsFavorite", ctx, userID, plantID).Return(false, nil)
+
+	// Call service
+	result, err := service.MarkAsWatered(ctx, userID, plantID)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, plantID, result.ID)
+	assert.Equal(t, userPlant.LastWatered, result.LastWatered)
+	assert.Equal(t, userPlant.NextWatering, result.NextWatering)
+	mockRepo.AssertExpectations(t)
 }

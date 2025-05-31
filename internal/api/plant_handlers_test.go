@@ -7,11 +7,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/anpanovv/planter/internal/models"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/gorilla/mux"
+	"github.com/anpanovv/planter/internal/middleware"
 )
 
 // MockPlantService is a mock implementation of the plant service
@@ -201,4 +204,100 @@ func TestHandleAdminCreatePlant(t *testing.T) {
 
 	// Verify that all expectations were met
 	mockPlantService.AssertExpectations(t)
+}
+
+func TestHandleMarkAsWatered(t *testing.T) {
+	// Create test data
+	userID := uuid.New()
+	plantID := uuid.New()
+	now := time.Now()
+
+	plant := &models.Plant{
+		ID:           plantID,
+		Name:         "Test Plant",
+		LastWatered:  &now,
+		NextWatering: &now,
+	}
+
+	// Create mock service
+	mockService := new(MockPlantService)
+	mockService.On("MarkAsWatered", mock.Anything, userID, plantID).Return(plant, nil)
+
+	// Create API instance
+	api := &API{
+		plantService: mockService,
+	}
+
+	// Create request
+	req := httptest.NewRequest("POST", "/plants/"+plantID.String()+"/water", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middleware.UserIDKey, userID))
+
+	// Add URL parameters
+	vars := map[string]string{
+		"plantId": plantID.String(),
+	}
+	req = mux.SetURLVars(req, vars)
+
+	// Create response recorder
+	rr := httptest.NewRecorder()
+
+	// Call handler
+	api.handleMarkAsWatered(rr, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusOK, rr.Code)
+
+	var response models.Plant
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, plant.ID, response.ID)
+	assert.Equal(t, plant.LastWatered, response.LastWatered)
+	assert.Equal(t, plant.NextWatering, response.NextWatering)
+
+	mockService.AssertExpectations(t)
+}
+
+func TestHandleMarkAsWatered_InvalidID(t *testing.T) {
+	// Create API instance
+	api := &API{
+		plantService: new(MockPlantService),
+	}
+
+	// Create request with invalid plant ID
+	req := httptest.NewRequest("POST", "/plants/invalid-uuid/water", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middleware.UserIDKey, uuid.New()))
+
+	// Add URL parameters
+	vars := map[string]string{
+		"plantId": "invalid-uuid",
+	}
+	req = mux.SetURLVars(req, vars)
+
+	// Create response recorder
+	rr := httptest.NewRecorder()
+
+	// Call handler
+	api.handleMarkAsWatered(rr, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+}
+
+func TestHandleMarkAsWatered_Unauthorized(t *testing.T) {
+	// Create API instance
+	api := &API{
+		plantService: new(MockPlantService),
+	}
+
+	// Create request without user ID in context
+	req := httptest.NewRequest("POST", "/plants/"+uuid.New().String()+"/water", nil)
+
+	// Create response recorder
+	rr := httptest.NewRecorder()
+
+	// Call handler
+	api.handleMarkAsWatered(rr, req)
+
+	// Assert response
+	assert.Equal(t, http.StatusUnauthorized, rr.Code)
 }

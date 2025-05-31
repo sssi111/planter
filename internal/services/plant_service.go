@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/anpanovv/planter/internal/models"
 	"github.com/anpanovv/planter/internal/repository"
@@ -93,7 +94,18 @@ func (s *PlantService) MarkAsWatered(ctx context.Context, userID uuid.UUID, plan
 	// Check if the user owns the plant
 	userPlant, err := s.plantRepo.GetUserPlant(ctx, userID, plantID)
 	if err != nil {
-		return nil, fmt.Errorf("user does not own this plant: %w", err)
+		// If the plant is not in user's collection, add it first
+		now := time.Now()
+		userPlant = &models.UserPlant{
+			UserID:       userID,
+			PlantID:      plantID,
+			LastWatered:  &now,
+			NextWatering: nil,
+		}
+		err = s.plantRepo.AddUserPlant(ctx, userPlant)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add plant to user's collection: %w", err)
+		}
 	}
 
 	// Mark as watered
