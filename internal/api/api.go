@@ -18,6 +18,7 @@ type API struct {
 	plantService    *services.PlantService
 	shopService     *services.ShopService
 	recommendationService *services.RecommendationService
+	notificationService *services.NotificationService
 	auth            *middleware.Auth
 }
 
@@ -28,6 +29,7 @@ func New(
 	plantService *services.PlantService,
 	shopService *services.ShopService,
 	recommendationService *services.RecommendationService,
+	notificationService *services.NotificationService,
 	auth *middleware.Auth,
 ) *API {
 	api := &API{
@@ -37,6 +39,7 @@ func New(
 		plantService:    plantService,
 		shopService:     shopService,
 		recommendationService: recommendationService,
+		notificationService: notificationService,
 		auth:            auth,
 	}
 
@@ -96,6 +99,10 @@ func (a *API) setupRoutes() {
 	chatRouter.HandleFunc("/sessions/{sessionId}", a.handleGetChatSession).Methods(http.MethodGet)
 	chatRouter.HandleFunc("/sessions/{sessionId}/messages", a.handleGetChatMessages).Methods(http.MethodGet)
 	chatRouter.HandleFunc("/sessions/{sessionId}/messages", a.handleSendChatMessage).Methods(http.MethodPost)
+
+	// Notification routes
+	a.router.HandleFunc("/notifications", middleware.AuthMiddleware(a.handleGetUserNotifications)).Methods(http.MethodGet)
+	a.router.HandleFunc("/notifications/{notificationId}/read", middleware.AuthMiddleware(a.handleMarkNotificationAsRead)).Methods(http.MethodPost)
 }
 
 // Handler returns the HTTP handler for the API

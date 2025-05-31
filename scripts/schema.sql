@@ -135,6 +135,22 @@ CREATE TABLE plant_recommendations (
     UNIQUE(questionnaire_id, plant_id)
 );
 
+-- Create notifications table
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    plant_id UUID NOT NULL REFERENCES plants(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+-- Create index for faster notification queries
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_created_at ON notifications(created_at);
+
 -- Create indexes
 CREATE INDEX idx_plants_name ON plants(name);
 CREATE INDEX idx_plants_scientific_name ON plants(scientific_name);

@@ -241,3 +241,30 @@ type DetailedQuestionnaireRequest struct {
 	ExperienceLevel       string        `json:"experienceLevel" validate:"required,oneof=BEGINNER INTERMEDIATE ADVANCED"`
 	AdditionalPreferences *string       `json:"additionalPreferences,omitempty"`
 }
+
+// NotificationType represents the type of notification
+type NotificationType string
+
+const (
+	NotificationTypeWatering NotificationType = "WATERING"
+)
+
+// Notification represents a notification in the system
+type Notification struct {
+	ID        uuid.UUID        `json:"id" db:"id"`
+	UserID    uuid.UUID        `json:"userId" db:"user_id"`
+	PlantID   uuid.UUID        `json:"plantId" db:"plant_id"`
+	Type      NotificationType `json:"type" db:"type"`
+	Message   string          `json:"message" db:"message"`
+	IsRead    bool            `json:"isRead" db:"is_read"`
+	CreatedAt time.Time       `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time       `json:"updatedAt" db:"updated_at"`
+	// Additional fields for response
+	Plant     *Plant          `json:"plant,omitempty" db:"-"`
+}
+
+// NotificationResponse represents the response for notifications list
+type NotificationResponse struct {
+	Notifications []*Notification `json:"notifications"`
+	Total         int            `json:"total"`
+}

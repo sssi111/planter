@@ -476,3 +476,38 @@ func (r *PlantRepository) CreatePlant(ctx context.Context, plant *models.Plant, 
 
 	return plant, nil
 }
+
+// GetAllUserPlantsForWateringCheck gets all user plants that need to be checked for watering
+func (r *PlantRepository) GetAllUserPlantsForWateringCheck(ctx context.Context) ([]*models.Plant, error) {
+	rows, err := r.db.QueryxContext(ctx, `
+		SELECT p.id, p.name, p.scientific_name, p.description, p.image_url,
+			   up.user_id, up.next_watering
+		FROM plants p
+		JOIN user_plants up ON p.id = up.plant_id
+		WHERE up.next_watering IS NOT NULL
+		ORDER BY up.next_watering ASC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get plants for watering check: %w", err)
+	}
+	defer rows.Close()
+
+	var plants []*models.Plant
+	for rows.Next() {
+		var plant models.Plant
+		err := rows.Scan(
+			&plant.ID, &plant.Name, &plant.ScientificName, &plant.Description,
+			&plant.ImageURL, &plant.UserID, &plant.NextWatering,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan plant: %w", err)
+		}
+		plants = append(plants, &plant)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating plants: %w", err)
+	}
+
+	return plants, nil
+}

@@ -50,4 +50,7 @@ type PlantRepository interface {
 	
 	// CreatePlant creates a new plant
 	CreatePlant(ctx context.Context, plant *models.Plant, careInstructions *models.CareInstructions) (*models.Plant, error)
+	
+	// GetAllUserPlantsForWateringCheck gets all user plants that need to be checked for watering
+	GetAllUserPlantsForWateringCheck(ctx context.Context) ([]*models.Plant, error)
 }
