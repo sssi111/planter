@@ -98,6 +98,51 @@ func TestNotificationRepository_GetUserNotifications(t *testing.T) {
     assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestNotificationRepository_GetUserNotifications_NullPlant(t *testing.T) {
+    repo, mock, cleanup := setupNotificationTest(t)
+    defer cleanup()
+
+    userID := uuid.New()
+    expectedTotal := 1
+    expectedNotification := &models.Notification{
+        ID:      uuid.New(),
+        UserID:  userID,
+        PlantID: uuid.New(),
+        Type:    models.NotificationTypeWatering,
+        Message: "Test notification",
+        IsRead:  false,
+    }
+
+    // Expect count query
+    mock.ExpectQuery("SELECT COUNT").
+        WithArgs(userID).
+        WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(expectedTotal))
+
+    // Expect notifications query with NULL plant fields
+    rows := sqlmock.NewRows([]string{
+        "id", "user_id", "plant_id", "type", "message", "is_read", "created_at", "updated_at",
+        "plant.id", "plant.name", "plant.scientific_name", "plant.image_url",
+    }).AddRow(
+        expectedNotification.ID, expectedNotification.UserID, expectedNotification.PlantID,
+        expectedNotification.Type, expectedNotification.Message, expectedNotification.IsRead,
+        time.Now(), time.Now(),
+        nil, nil, nil, nil,
+    )
+
+    mock.ExpectQuery("SELECT n.id").
+        WithArgs(userID, 10, 0).
+        WillReturnRows(rows)
+
+    notifications, total, err := repo.GetUserNotifications(context.Background(), userID, 0, 10)
+    assert.NoError(t, err)
+    assert.Equal(t, expectedTotal, total)
+    assert.Len(t, notifications, 1)
+    assert.Equal(t, expectedNotification.ID, notifications[0].ID)
+    assert.Nil(t, notifications[0].Plant)
+
+    assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestNotificationRepository_MarkAsRead(t *testing.T) {
     repo, mock, cleanup := setupNotificationTest(t)
     defer cleanup()
@@ -151,5 +196,40 @@ func TestNotificationRepository_GetUnreadWateringNotifications(t *testing.T) {
     assert.Len(t, notifications, 1)
     assert.Equal(t, expectedNotification.ID, notifications[0].ID)
     assert.Equal(t, expectedNotification.Plant.ID, notifications[0].Plant.ID)
+    assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestNotificationRepository_GetUnreadWateringNotifications_NullPlant(t *testing.T) {
+    repo, mock, cleanup := setupNotificationTest(t)
+    defer cleanup()
+
+    expectedNotification := &models.Notification{
+        ID:      uuid.New(),
+        UserID:  uuid.New(),
+        PlantID: uuid.New(),
+        Type:    models.NotificationTypeWatering,
+        Message: "Test notification",
+        IsRead:  false,
+    }
+
+    rows := sqlmock.NewRows([]string{
+        "id", "user_id", "plant_id", "type", "message", "is_read", "created_at", "updated_at",
+        "plant.id", "plant.name", "plant.scientific_name", "plant.image_url",
+    }).AddRow(
+        expectedNotification.ID, expectedNotification.UserID, expectedNotification.PlantID,
+        expectedNotification.Type, expectedNotification.Message, expectedNotification.IsRead,
+        time.Now(), time.Now(),
+        nil, nil, nil, nil,
+    )
+
+    mock.ExpectQuery("SELECT n.id").
+        WithArgs(models.NotificationTypeWatering).
+        WillReturnRows(rows)
+
+    notifications, err := repo.GetUnreadWateringNotifications(context.Background())
+    assert.NoError(t, err)
+    assert.Len(t, notifications, 1)
+    assert.Equal(t, expectedNotification.ID, notifications[0].ID)
+    assert.Nil(t, notifications[0].Plant)
     assert.NoError(t, mock.ExpectationsWereMet())
 } 

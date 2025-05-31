@@ -2,6 +2,7 @@ package impl
 
 import (
     "context"
+    "database/sql"
     "fmt"
 
     "github.com/anpanovv/planter/internal/db"
@@ -48,7 +49,7 @@ func (r *NotificationRepository) GetUserNotifications(ctx context.Context, userI
 
     // Get notifications with plants
     rows, err := r.db.QueryxContext(ctx, `
-        SELECT n.*, 
+        SELECT n.id, n.user_id, n.plant_id, n.type, n.message, n.is_read, n.created_at, n.updated_at,
                p.id as "plant.id", p.name as "plant.name", 
                p.scientific_name as "plant.scientific_name",
                p.image_url as "plant.image_url"
@@ -66,18 +67,32 @@ func (r *NotificationRepository) GetUserNotifications(ctx context.Context, userI
     var notifications []*models.Notification
     for rows.Next() {
         var notification models.Notification
-        var plant models.Plant
+        var plantID, plantName, scientificName, imageURL sql.NullString
         err := rows.Scan(
             &notification.ID, &notification.UserID, &notification.PlantID,
             &notification.Type, &notification.Message, &notification.IsRead,
             &notification.CreatedAt, &notification.UpdatedAt,
-            &plant.ID, &plant.Name, &plant.ScientificName, &plant.ImageURL,
+            &plantID, &plantName, &scientificName, &imageURL,
         )
         if err != nil {
             return nil, 0, fmt.Errorf("failed to scan notification: %w", err)
         }
-        notification.Plant = &plant
+
+        // Only set plant if we have valid plant data
+        if plantID.Valid {
+            notification.Plant = &models.Plant{
+                ID:            uuid.MustParse(plantID.String),
+                Name:          plantName.String,
+                ScientificName: scientificName.String,
+                ImageURL:      imageURL.String,
+            }
+        }
+
         notifications = append(notifications, &notification)
+    }
+
+    if err := rows.Err(); err != nil {
+        return nil, 0, fmt.Errorf("error iterating notifications: %w", err)
     }
 
     return notifications, total, nil
@@ -109,7 +124,7 @@ func (r *NotificationRepository) MarkAsRead(ctx context.Context, notificationID 
 // GetUnreadWateringNotifications gets all unread watering notifications that need to be sent
 func (r *NotificationRepository) GetUnreadWateringNotifications(ctx context.Context) ([]*models.Notification, error) {
     rows, err := r.db.QueryxContext(ctx, `
-        SELECT n.*, 
+        SELECT n.id, n.user_id, n.plant_id, n.type, n.message, n.is_read, n.created_at, n.updated_at,
                p.id as "plant.id", p.name as "plant.name", 
                p.scientific_name as "plant.scientific_name",
                p.image_url as "plant.image_url"
@@ -126,18 +141,32 @@ func (r *NotificationRepository) GetUnreadWateringNotifications(ctx context.Cont
     var notifications []*models.Notification
     for rows.Next() {
         var notification models.Notification
-        var plant models.Plant
+        var plantID, plantName, scientificName, imageURL sql.NullString
         err := rows.Scan(
             &notification.ID, &notification.UserID, &notification.PlantID,
             &notification.Type, &notification.Message, &notification.IsRead,
             &notification.CreatedAt, &notification.UpdatedAt,
-            &plant.ID, &plant.Name, &plant.ScientificName, &plant.ImageURL,
+            &plantID, &plantName, &scientificName, &imageURL,
         )
         if err != nil {
             return nil, fmt.Errorf("failed to scan notification: %w", err)
         }
-        notification.Plant = &plant
+
+        // Only set plant if we have valid plant data
+        if plantID.Valid {
+            notification.Plant = &models.Plant{
+                ID:            uuid.MustParse(plantID.String),
+                Name:          plantName.String,
+                ScientificName: scientificName.String,
+                ImageURL:      imageURL.String,
+            }
+        }
+
         notifications = append(notifications, &notification)
+    }
+
+    if err := rows.Err(); err != nil {
+        return nil, fmt.Errorf("error iterating notifications: %w", err)
     }
 
     return notifications, nil

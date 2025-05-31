@@ -2,6 +2,7 @@ package services
 
 import (
     "context"
+    "fmt"
     "testing"
     "time"
 
@@ -128,5 +129,31 @@ func TestNotificationService_CheckAndCreateWateringNotifications(t *testing.T) {
     // Assert
     assert.NoError(t, err)
     mockPlantRepo.AssertExpectations(t)
+    mockNotificationRepo.AssertExpectations(t)
+}
+
+func TestNotificationService_GetUserNotifications_NoNotifications(t *testing.T) {
+    // Create mocks
+    mockNotificationRepo := new(MockNotificationRepository)
+    mockPlantRepo := new(MockPlantRepository)
+
+    // Create service
+    service := NewNotificationService(mockNotificationRepo, mockPlantRepo)
+
+    // Test data
+    ctx := context.Background()
+    userID := uuid.New()
+
+    // Set up expectations - simulate database error or no notifications
+    mockNotificationRepo.On("GetUserNotifications", ctx, userID, 0, 10).Return(nil, 0, fmt.Errorf("no notifications found"))
+
+    // Call the service
+    response, err := service.GetUserNotifications(ctx, userID, 1, 10)
+
+    // Assert
+    assert.NoError(t, err)
+    assert.NotNil(t, response)
+    assert.Empty(t, response.Notifications)
+    assert.Equal(t, 0, response.Total)
     mockNotificationRepo.AssertExpectations(t)
 } 

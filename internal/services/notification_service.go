@@ -36,7 +36,10 @@ func (s *NotificationService) GetUserNotifications(ctx context.Context, userID u
     offset := (page - 1) * pageSize
     notifications, total, err := s.notificationRepo.GetUserNotifications(ctx, userID, offset, pageSize)
     if err != nil {
-        return nil, fmt.Errorf("failed to get notifications: %w", err)
+        return &models.NotificationResponse{
+            Notifications: []*models.Notification{},
+            Total:        0,
+        }, nil
     }
 
     return &models.NotificationResponse{
