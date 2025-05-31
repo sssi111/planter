@@ -40,8 +40,20 @@ func (a *API) handleSaveQuestionnaire(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Respond with the questionnaire
-	utils.RespondWithJSON(w, http.StatusCreated, questionnaire)
+	// Get recommendations
+	plants, err := a.recommendationService.GetRecommendations(r.Context(), questionnaire.ID)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to get recommendations")
+		return
+	}
+
+	if len(plants) == 0 {
+		utils.RespondWithError(w, http.StatusNotFound, "No plants found matching the criteria")
+		return
+	}
+
+	// Respond with the best matching plant (first in the list)
+	utils.RespondWithJSON(w, http.StatusCreated, plants[0])
 }
 
 // handleGetRecommendations handles the get recommendations request
@@ -94,8 +106,20 @@ func (a *API) handleSaveDetailedQuestionnaire(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// Respond with the questionnaire
-	utils.RespondWithJSON(w, http.StatusCreated, questionnaire)
+	// Get recommendations
+	plants, err := a.recommendationService.GetRecommendations(r.Context(), questionnaire.ID)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to get recommendations")
+		return
+	}
+
+	if len(plants) == 0 {
+		utils.RespondWithError(w, http.StatusNotFound, "No plants found matching the criteria")
+		return
+	}
+
+	// Respond with the best matching plant (first in the list)
+	utils.RespondWithJSON(w, http.StatusCreated, plants[0])
 }
 
 // handleCreateChatSession handles the create chat session request

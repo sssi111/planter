@@ -87,6 +87,47 @@ type TestHandlers struct {
 	recommendationService *MockRecommendationService
 }
 
+// handleSaveQuestionnaire is a test implementation of the handleSaveQuestionnaire handler
+func (h *TestHandlers) handleSaveQuestionnaire(w http.ResponseWriter, r *http.Request) {
+	// Parse the request body
+	var req models.QuestionnaireRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Get the authenticated user ID from the context if available
+	var userID *uuid.UUID
+	authUserID, err := middleware.GetUserID(r.Context())
+	if err == nil {
+		userID = &authUserID
+	}
+
+	// Save the questionnaire
+	questionnaire, err := h.recommendationService.SaveQuestionnaire(r.Context(), userID, &req)
+	if err != nil {
+		http.Error(w, "Failed to save questionnaire", http.StatusInternalServerError)
+		return
+	}
+
+	// Get recommendations
+	plants, err := h.recommendationService.GetRecommendations(r.Context(), questionnaire.ID)
+	if err != nil {
+		http.Error(w, "Failed to get recommendations", http.StatusInternalServerError)
+		return
+	}
+
+	if len(plants) == 0 {
+		http.Error(w, "No plants found matching the criteria", http.StatusNotFound)
+		return
+	}
+
+	// Respond with the best matching plant
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(plants[0])
+}
+
 // handleSaveDetailedQuestionnaire is a test implementation of the handleSaveDetailedQuestionnaire handler
 func (h *TestHandlers) handleSaveDetailedQuestionnaire(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body
@@ -110,10 +151,22 @@ func (h *TestHandlers) handleSaveDetailedQuestionnaire(w http.ResponseWriter, r 
 		return
 	}
 
-	// Respond with the questionnaire
+	// Get recommendations
+	plants, err := h.recommendationService.GetRecommendations(r.Context(), questionnaire.ID)
+	if err != nil {
+		http.Error(w, "Failed to get recommendations", http.StatusInternalServerError)
+		return
+	}
+
+	if len(plants) == 0 {
+		http.Error(w, "No plants found matching the criteria", http.StatusNotFound)
+		return
+	}
+
+	// Respond with the best matching plant
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(questionnaire)
+	json.NewEncoder(w).Encode(plants[0])
 }
 
 // handleCreateChatSession is a test implementation of the handleCreateChatSession handler
@@ -200,7 +253,7 @@ func TestHandleSaveDetailedQuestionnaire(t *testing.T) {
 		AdditionalPreferences: stringPtr("Low maintenance"),
 	}
 
-	// Expected response
+	// Expected questionnaire
 	expectedQuestionnaire := &models.PlantQuestionnaire{
 		ID:                 uuid.New(),
 		SunlightPreference: models.SunlightLevelMedium,
@@ -210,9 +263,21 @@ func TestHandleSaveDetailedQuestionnaire(t *testing.T) {
 		CreatedAt:          time.Now(),
 	}
 
+	// Expected plant response
+	expectedPlant := &models.Plant{
+		ID:             uuid.New(),
+		Name:           "Spathiphyllum",
+		ScientificName: "Spathiphyllum wallisii",
+		Description:    "Peace lily, good for low light conditions",
+		ImageURL:       "https://example.com/spathiphyllum.jpg",
+		CreatedAt:      time.Now(),
+	}
+
 	// Set up the mock expectations
 	mockService.On("SaveDetailedQuestionnaire", mock.Anything, mock.AnythingOfType("*uuid.UUID"), mock.AnythingOfType("*models.DetailedQuestionnaireRequest")).
 		Return(expectedQuestionnaire, nil)
+	mockService.On("GetRecommendations", mock.Anything, expectedQuestionnaire.ID).
+		Return([]*models.Plant{expectedPlant}, nil)
 
 	// Create a request
 	requestBody, _ := json.Marshal(detailedRequest)
@@ -230,16 +295,15 @@ func TestHandleSaveDetailedQuestionnaire(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, rr.Code)
 
 	// Parse the response
-	var response models.PlantQuestionnaire
+	var response models.Plant
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	assert.NoError(t, err)
 
 	// Check the response
-	assert.Equal(t, expectedQuestionnaire.ID, response.ID)
-	assert.Equal(t, expectedQuestionnaire.SunlightPreference, response.SunlightPreference)
-	assert.Equal(t, expectedQuestionnaire.PetFriendly, response.PetFriendly)
-	assert.Equal(t, expectedQuestionnaire.CareLevel, response.CareLevel)
-	assert.Equal(t, *expectedQuestionnaire.PreferredLocation, *response.PreferredLocation)
+	assert.Equal(t, expectedPlant.ID, response.ID)
+	assert.Equal(t, expectedPlant.Name, response.Name)
+	assert.Equal(t, expectedPlant.ScientificName, response.ScientificName)
+	assert.Equal(t, expectedPlant.Description, response.Description)
 
 	// Verify that all expectations were met
 	mockService.AssertExpectations(t)
@@ -373,6 +437,81 @@ func TestHandleSendChatMessage(t *testing.T) {
 	assert.Equal(t, expectedMessage.UserID, response.Message.UserID)
 	assert.Equal(t, expectedMessage.Role, response.Message.Role)
 	assert.Equal(t, expectedMessage.Content, response.Message.Content)
+
+	// Verify that all expectations were met
+	mockService.AssertExpectations(t)
+}
+
+// TestHandleSaveQuestionnaire tests the handleSaveQuestionnaire function
+func TestHandleSaveQuestionnaire(t *testing.T) {
+	// Create a mock recommendation service
+	mockService := new(MockRecommendationService)
+
+	// Create test handlers
+	handlers := &TestHandlers{
+		recommendationService: mockService,
+	}
+
+	// Create a test questionnaire request
+	questionnaireRequest := &models.QuestionnaireRequest{
+		SunlightPreference:   models.SunlightLevelMedium,
+		PetFriendly:          true,
+		CareLevel:            3,
+		PreferredLocation:    stringPtr("Living Room"),
+		AdditionalPreferences: stringPtr("Low maintenance"),
+	}
+
+	// Expected questionnaire
+	expectedQuestionnaire := &models.PlantQuestionnaire{
+		ID:                 uuid.New(),
+		SunlightPreference: models.SunlightLevelMedium,
+		PetFriendly:        true,
+		CareLevel:          3,
+		PreferredLocation:  stringPtr("Living Room"),
+		CreatedAt:          time.Now(),
+	}
+
+	// Expected plant response
+	expectedPlant := &models.Plant{
+		ID:             uuid.New(),
+		Name:           "Sansevieria",
+		ScientificName: "Sansevieria trifasciata",
+		Description:    "Snake plant, very hardy and low maintenance",
+		ImageURL:       "https://example.com/sansevieria.jpg",
+		CreatedAt:      time.Now(),
+	}
+
+	// Set up the mock expectations
+	mockService.On("SaveQuestionnaire", mock.Anything, mock.AnythingOfType("*uuid.UUID"), mock.AnythingOfType("*models.QuestionnaireRequest")).
+		Return(expectedQuestionnaire, nil)
+	mockService.On("GetRecommendations", mock.Anything, expectedQuestionnaire.ID).
+		Return([]*models.Plant{expectedPlant}, nil)
+
+	// Create a request
+	requestBody, _ := json.Marshal(questionnaireRequest)
+	req, err := http.NewRequest("POST", "/recommendations/questionnaire", bytes.NewBuffer(requestBody))
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Create a response recorder
+	rr := httptest.NewRecorder()
+
+	// Call the handler
+	handlers.handleSaveQuestionnaire(rr, req)
+
+	// Check the status code
+	assert.Equal(t, http.StatusCreated, rr.Code)
+
+	// Parse the response
+	var response models.Plant
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	assert.NoError(t, err)
+
+	// Check the response
+	assert.Equal(t, expectedPlant.ID, response.ID)
+	assert.Equal(t, expectedPlant.Name, response.Name)
+	assert.Equal(t, expectedPlant.ScientificName, response.ScientificName)
+	assert.Equal(t, expectedPlant.Description, response.Description)
 
 	// Verify that all expectations were met
 	mockService.AssertExpectations(t)

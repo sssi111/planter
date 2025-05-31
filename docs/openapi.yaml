@@ -621,11 +621,11 @@ paths:
               $ref: '#/components/schemas/QuestionnaireRequest'
       responses:
         '201':
-          description: Questionnaire saved
+          description: Best matching plant found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlantQuestionnaire'
+                $ref: '#/components/schemas/Plant'
         '400':
           description: Invalid request
           content:
@@ -647,11 +647,11 @@ paths:
               $ref: '#/components/schemas/DetailedQuestionnaireRequest'
       responses:
         '201':
-          description: Questionnaire saved
+          description: Best matching plant found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PlantQuestionnaire'
+                $ref: '#/components/schemas/Plant'
         '400':
           description: Invalid request
           content:

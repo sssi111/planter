@@ -1,23 +1,31 @@
 package main
 
 import (
-	"database/sql"
+	"log"
+	"net/http"
 	"time"
 
-	"github.com/your-project/api"
-	"github.com/your-project/impl"
-	"github.com/your-project/jobs"
-	"github.com/your-project/services"
+	"github.com/anpanovv/planter/internal/api"
+	"github.com/anpanovv/planter/internal/db"
+	"github.com/anpanovv/planter/internal/middleware"
+	"github.com/anpanovv/planter/internal/repository/impl"
+	"github.com/anpanovv/planter/internal/jobs"
+	"github.com/anpanovv/planter/internal/services"
 )
 
 func main() {
-	// ... existing initialization code ...
+	// Initialize database
+	database, err := db.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer database.Close()
 
 	// Create repositories
-	userRepo := impl.NewUserRepository(db)
-	plantRepo := impl.NewPlantRepository(db)
-	shopRepo := impl.NewShopRepository(db)
-	notificationRepo := impl.NewNotificationRepository(db)
+	userRepo := impl.NewUserRepository(database)
+	plantRepo := impl.NewPlantRepository(database)
+	shopRepo := impl.NewShopRepository(database)
+	notificationRepo := impl.NewNotificationRepository(database)
 
 	// Create services
 	userService := services.NewUserService(userRepo)
@@ -30,13 +38,36 @@ func main() {
 	wateringJob.Start()
 	defer wateringJob.Stop()
 
-	// Create API
-	api := api.NewAPI(
+	// Create auth middleware first
+	authMiddleware := middleware.NewAuth("development-secret-key") // TODO: Replace with config value
+	
+	// Create additional services
+	authService := services.NewAuthService(userRepo, authMiddleware)
+	recommendationService := services.NewRecommendationService(
+		impl.NewRecommendationRepository(database),
+		plantRepo,
+		"", // yandexGPT API key
+		"", // yandexGPT model
+	)
+
+	// Create and start API server
+	apiHandler := api.New(
+		authService,
 		userService,
 		plantService,
 		shopService,
+		recommendationService,
 		notificationService,
+		authMiddleware,
 	)
 
-	// ... existing server code ...
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: apiHandler.Handler(),
+	}
+
+	log.Println("Starting server on :8080")
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatal(err)
+	}
 } 

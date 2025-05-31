@@ -245,29 +245,67 @@ func (r *PlantRepository) RemoveFromFavorites(ctx context.Context, userID uuid.U
 
 // MarkAsWatered marks a plant as watered
 func (r *PlantRepository) MarkAsWatered(ctx context.Context, userID uuid.UUID, plantID uuid.UUID) error {
+	// First verify the plant exists
+	var plantExists bool
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS(SELECT 1 FROM plants WHERE id = $1)
+	`, plantID).Scan(&plantExists)
+	if err != nil {
+		return fmt.Errorf("failed to check plant existence: %w", err)
+	}
+	if !plantExists {
+		return fmt.Errorf("plant with ID %s not found", plantID)
+	}
+
 	// Get the plant's watering frequency
 	var wateringFrequency int
-	err := r.db.QueryRowContext(ctx, `
+	err = r.db.QueryRowContext(ctx, `
 		SELECT c.watering_frequency
 		FROM plants p
 		JOIN care_instructions c ON p.care_instructions_id = c.id
 		WHERE p.id = $1
 	`, plantID).Scan(&wateringFrequency)
 	if err != nil {
-		return fmt.Errorf("failed to get plant watering frequency: %w", err)
+		return fmt.Errorf("failed to get watering frequency for plant %s: %w", plantID, err)
 	}
 
 	// Calculate the next watering date
-	nextWatering := time.Now().AddDate(0, 0, wateringFrequency)
+	now := time.Now()
+	nextWatering := now.AddDate(0, 0, wateringFrequency)
 
-	// Update the user plant
-	_, err = r.db.ExecContext(ctx, `
-		UPDATE user_plants
-		SET last_watered = NOW(), next_watering = $1, updated_at = NOW()
-		WHERE user_id = $2 AND plant_id = $3
-	`, nextWatering, userID, plantID)
+	// Check if user_plants record exists
+	var userPlantExists bool
+	err = r.db.QueryRowContext(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM user_plants
+			WHERE user_id = $1 AND plant_id = $2
+		)
+	`, userID, plantID).Scan(&userPlantExists)
 	if err != nil {
-		return fmt.Errorf("failed to mark plant as watered: %w", err)
+		return fmt.Errorf("failed to check user plant existence for user %s plant %s: %w", userID, plantID, err)
+	}
+
+	// Create or update the record
+	if !userPlantExists {
+		// Create new record
+		_, err = r.db.ExecContext(ctx, `
+			INSERT INTO user_plants
+			(user_id, plant_id, last_watered, next_watering, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $5)
+		`, userID, plantID, now, nextWatering, now)
+		if err != nil {
+			return fmt.Errorf("failed to create user plant record for user %s plant %s: %w", userID, plantID, err)
+		}
+	} else {
+		// Update existing record
+		_, err = r.db.ExecContext(ctx, `
+			UPDATE user_plants
+			SET last_watered = $1, next_watering = $2, updated_at = $1
+			WHERE user_id = $3 AND plant_id = $4
+		`, now, nextWatering, userID, plantID)
+		if err != nil {
+			return fmt.Errorf("failed to update user plant record for user %s plant %s: %w", userID, plantID, err)
+		}
 	}
 
 	return nil
