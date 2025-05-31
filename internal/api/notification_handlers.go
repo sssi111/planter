@@ -5,7 +5,6 @@ import (
     "strconv"
 
     "github.com/anpanovv/planter/internal/middleware"
-    "github.com/anpanovv/planter/internal/services"
     "github.com/anpanovv/planter/internal/utils"
     "github.com/google/uuid"
     "github.com/gorilla/mux"

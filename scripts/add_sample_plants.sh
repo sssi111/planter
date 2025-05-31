@@ -46,42 +46,64 @@ for i in $(seq 0 $(($PLANTS_COUNT - 1))); do
     
     echo "Добавление растения $PLANT_NAME..."
     
-    # Получаем JSON для текущего растения
-    PLANT=$($PYTHON_CMD -c "import json; f=open('$PLANTS_FILE'); data=json.load(f); print(json.dumps(data[$i])); f.close()")
+    # Получаем JSON для текущего растения и сохраняем во временный файл
+    TEMP_FILE=$(mktemp)
+    $PYTHON_CMD -c "import json; f=open('$PLANTS_FILE'); data=json.load(f); f2=open('$TEMP_FILE', 'w'); json.dump(data[$i], f2, ensure_ascii=False); f.close(); f2.close()"
     
     # Отправляем запрос
     echo "Отправляемый JSON:"
-    echo "$PLANT" | $PYTHON_CMD -m json.tool
+    cat "$TEMP_FILE" | $PYTHON_CMD -m json.tool
     
     RESPONSE=$(curl -s -X POST \
         -H "Content-Type: application/json" \
-        -d "$PLANT" \
+        --data-binary "@$TEMP_FILE" \
         http://localhost:8080/admin/plants)
     
+    # Сохраняем код ответа
+    STATUS_CODE=$?
     echo "Ответ сервера:"
     echo "$RESPONSE"
     
-    if [ $? -eq 0 ]; then
-        # Проверяем ответ с помощью Python
-        IS_SUCCESS=$($PYTHON_CMD -c "import json, sys;
-try:
-    data=json.loads('$RESPONSE');
-    print('true' if 'id' in data else 'false')
-except:
-    print('false')")
+    # Проверяем ответ
+    if [ $STATUS_CODE -eq 0 ]; then
+        # Сохраняем ответ во временный файл для обработки
+        RESPONSE_FILE=$(mktemp)
+        echo "$RESPONSE" > "$RESPONSE_FILE"
         
-        if [ "$IS_SUCCESS" = "true" ]; then
-            PLANT_ID=$($PYTHON_CMD -c "import json; data=json.loads('$RESPONSE'); print(data['id'])")
-            echo "Растение успешно добавлено с ID: $PLANT_ID"
+        # Проверяем ответ с помощью Python
+        RESULT=$($PYTHON_CMD -c "import json, sys;
+try:
+    with open('$RESPONSE_FILE') as f:
+        data = json.load(f)
+    if 'id' in data:
+        print('SUCCESS:' + data['id'])
+    else:
+        print('ERROR:Неверный формат ответа сервера')
+except Exception as e:
+    print(f'ERROR:{str(e)}')")
+        
+        # Обрабатываем результат
+        if [[ "$RESULT" == SUCCESS:* ]]; then
+            PLANT_ID=${RESULT#SUCCESS:}
+            echo "✅ Растение успешно добавлено с ID: $PLANT_ID"
         else
-            echo "Ошибка при добавлении растения: $RESPONSE"
+            ERROR_MSG=${RESULT#ERROR:}
+            echo "❌ Ошибка при обработке ответа: $ERROR_MSG"
+            echo "Полный ответ сервера:"
+            echo "$RESPONSE"
         fi
+        
+        rm "$RESPONSE_FILE"
     else
-        echo "Ошибка при выполнении запроса"
+        echo "❌ Ошибка при выполнении запроса (код $STATUS_CODE)"
     fi
     
-    # Небольшая пауза между запросами
-    sleep 0.5
+    rm "$TEMP_FILE"
+    
+    # Пауза между запросами и разделитель для читаемости
+    echo ""
+    echo "--------------------------------------------------"
+    sleep 1
 done
 
 echo "Добавление растений завершено"

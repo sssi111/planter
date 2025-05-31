@@ -240,10 +240,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /plants/favorites:
+  /users/me/favorites:
     get:
       tags:
-        - Plants
+        - Users
       summary: Get favorite plants
       description: Get a user's favorite plants
       security:

@@ -57,28 +57,28 @@ func (s *NotificationService) MarkAsRead(ctx context.Context, notificationID uui
 // CheckAndCreateWateringNotifications checks for plants that need watering and creates notifications
 func (s *NotificationService) CheckAndCreateWateringNotifications(ctx context.Context) error {
     // Get all user plants
-    plants, err := s.plantRepo.GetAllUserPlantsForWateringCheck(ctx)
+    userPlants, err := s.plantRepo.GetAllUserPlantsForWateringCheck(ctx)
     if err != nil {
-        return fmt.Errorf("failed to get plants for watering check: %w", err)
+    	return fmt.Errorf("failed to get plants for watering check: %w", err)
     }
-
+   
     now := time.Now()
-    for _, plant := range plants {
-        if plant.NextWatering != nil && plant.NextWatering.Before(now) {
-            // Create notification
-            notification := &models.Notification{
-                UserID:  plant.UserID,
-                PlantID: plant.ID,
-                Type:    models.NotificationTypeWatering,
-                Message: fmt.Sprintf("Пора полить ваше растение %s!", plant.Name),
-                IsRead:  false,
-            }
-
-            err := s.notificationRepo.Create(ctx, notification)
-            if err != nil {
-                return fmt.Errorf("failed to create watering notification: %w", err)
-            }
-        }
+    for _, userPlant := range userPlants {
+    	if userPlant.NextWatering != nil && userPlant.NextWatering.Before(now) {
+    		// Create notification
+    		notification := &models.Notification{
+    			UserID:  userPlant.UserID,
+    			PlantID: userPlant.PlantID,
+    			Type:    models.NotificationTypeWatering,
+    			Message: fmt.Sprintf("Пора полить ваше растение %s!", userPlant.Plant.Name),
+    			IsRead:  false,
+    		}
+   
+    		err := s.notificationRepo.Create(ctx, notification)
+    		if err != nil {
+    			return fmt.Errorf("failed to create watering notification: %w", err)
+    		}
+    	}
     }
 
     return nil

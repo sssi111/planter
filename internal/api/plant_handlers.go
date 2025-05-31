@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/anpanovv/planter/internal/middleware"
@@ -70,6 +71,7 @@ func (a *API) handleGetFavoritePlants(w http.ResponseWriter, r *http.Request) {
 	// Get the authenticated user ID from the context
 	userID, err := middleware.GetUserID(r.Context())
 	if err != nil {
+		log.Printf("Failed to get user ID from context: %v", err)
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
@@ -77,6 +79,7 @@ func (a *API) handleGetFavoritePlants(w http.ResponseWriter, r *http.Request) {
 	// Get the favorite plants
 	plants, err := a.plantService.GetFavoritePlants(r.Context(), userID)
 	if err != nil {
+		log.Printf("Failed to get favorite plants for user %s: %v", userID, err)
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to get favorite plants")
 		return
 	}
@@ -98,6 +101,7 @@ func (a *API) handleAddToFavorites(w http.ResponseWriter, r *http.Request) {
 	// Get the authenticated user ID from the context
 	userID, err := middleware.GetUserID(r.Context())
 	if err != nil {
+		log.Printf("Failed to get user ID from context: %v", err)
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
@@ -105,6 +109,7 @@ func (a *API) handleAddToFavorites(w http.ResponseWriter, r *http.Request) {
 	// Add to favorites
 	err = a.plantService.AddToFavorites(r.Context(), userID, plantID)
 	if err != nil {
+		log.Printf("Failed to add plant %s to favorites for user %s: %v", plantID, userID, err)
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to add to favorites")
 		return
 	}
@@ -126,6 +131,7 @@ func (a *API) handleRemoveFromFavorites(w http.ResponseWriter, r *http.Request) 
 	// Get the authenticated user ID from the context
 	userID, err := middleware.GetUserID(r.Context())
 	if err != nil {
+		log.Printf("Failed to get user ID from context: %v", err)
 		utils.RespondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		return
 	}
@@ -133,6 +139,7 @@ func (a *API) handleRemoveFromFavorites(w http.ResponseWriter, r *http.Request) 
 	// Remove from favorites
 	err = a.plantService.RemoveFromFavorites(r.Context(), userID, plantID)
 	if err != nil {
+		log.Printf("Failed to remove plant %s from favorites for user %s: %v", plantID, userID, err)
 		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to remove from favorites")
 		return
 	}

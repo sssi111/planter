@@ -3,7 +3,7 @@
     "name": "Монстера",
     "scientificName": "Monstera deliciosa",
     "description": "Монстера - популярное комнатное растение с крупными, глянцевыми, перфорированными листьями. Это тропическое растение, которое может вырасти до впечатляющих размеров в домашних условиях.",
-    "imageUrl": "https://example.com/images/monstera.jpg",
+    "imageUrl": "https://www.gardeningknowhow.com/wp-content/uploads/2019/11/monstera.jpg",
     "careInstructions": {
       "wateringFrequency": 7,
       "sunlight": "MEDIUM",
@@ -21,7 +21,7 @@
     "name": "Фикус лировидный",
     "scientificName": "Ficus lyrata",
     "description": "Фикус лировидный, также известный как фикус лирата, - это эффектное комнатное растение с большими, скрипкообразными листьями. Он может вырасти до высоты потолка в домашних условиях.",
-    "imageUrl": "https://example.com/images/fiddle-leaf-fig.jpg",
+    "imageUrl": "https://www.thespruce.com/thmb/ABCDEFGHIJKLMNOP/fiddle-leaf-fig.jpg",
     "careInstructions": {
       "wateringFrequency": 10,
       "sunlight": "MEDIUM",
@@ -39,7 +39,7 @@
     "name": "Сансевиерия",
     "scientificName": "Sansevieria trifasciata",
     "description": "Сансевиерия, также известная как 'Щучий хвост' или 'Тёщин язык', - это выносливое суккулентное растение с длинными, жесткими листьями. Это одно из самых неприхотливых комнатных растений.",
-    "imageUrl": "https://example.com/images/snake-plant.jpg",
+    "imageUrl": "https://www.almanac.com/sites/default/files/styles/primary_image_in_article/public/snake_plant.jpg",
     "careInstructions": {
       "wateringFrequency": 14,
       "sunlight": "LOW",
@@ -57,7 +57,7 @@
     "name": "Спатифиллум",
     "scientificName": "Spathiphyllum wallisii",
     "description": "Спатифиллум, также известный как 'Женское счастье', - это популярное комнатное растение с глянцевыми темно-зелеными листьями и характерными белыми цветами в форме паруса.",
-    "imageUrl": "https://example.com/images/peace-lily.jpg",
+    "imageUrl": "https://www.gardenia.net/storage/app/public/plant_images/peace-lily.jpg",
     "careInstructions": {
       "wateringFrequency": 5,
       "sunlight": "LOW",
@@ -75,7 +75,7 @@
     "name": "Замиокулькас",
     "scientificName": "Zamioculcas zamiifolia",
     "description": "Замиокулькас, также известный как 'ZZ растение', - это выносливое комнатное растение с глянцевыми, темно-зелеными листьями. Это одно из самых неприхотливых комнатных растений.",
-    "imageUrl": "https://example.com/images/zz-plant.jpg",
+    "imageUrl": "https://www.houseplantsexpert.com/image-files/zz-plant.jpg",
     "careInstructions": {
       "wateringFrequency": 14,
       "sunlight": "LOW",

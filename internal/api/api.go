@@ -61,13 +61,13 @@ func (a *API) setupRoutes() {
 
 	// Plant routes
 	a.router.HandleFunc("/plants", a.handleGetAllPlants).Methods(http.MethodGet)
-	a.router.HandleFunc("/plants/{plantId}", a.handleGetPlant).Methods(http.MethodGet)
 	a.router.HandleFunc("/plants/search", a.handleSearchPlants).Methods(http.MethodGet)
+	a.router.HandleFunc("/plants/{plantId}", a.handleGetPlant).Methods(http.MethodGet)
 
 	// Plant routes that require authentication
 	plantRouter := a.router.PathPrefix("/plants").Subrouter()
 	plantRouter.Use(a.auth.RequireAuth)
-	plantRouter.HandleFunc("/favorites", a.handleGetFavoritePlants).Methods(http.MethodGet)
+	userRouter.HandleFunc("/me/favorites", a.handleGetFavoritePlants).Methods(http.MethodGet)
 	plantRouter.HandleFunc("/{plantId}/favorite", a.handleAddToFavorites).Methods(http.MethodPost)
 	plantRouter.HandleFunc("/{plantId}/favorite", a.handleRemoveFromFavorites).Methods(http.MethodDelete)
 	plantRouter.HandleFunc("/{plantId}/water", a.handleMarkAsWatered).Methods(http.MethodPost)
@@ -101,8 +101,8 @@ func (a *API) setupRoutes() {
 	chatRouter.HandleFunc("/sessions/{sessionId}/messages", a.handleSendChatMessage).Methods(http.MethodPost)
 
 	// Notification routes
-	a.router.HandleFunc("/notifications", middleware.AuthMiddleware(a.handleGetUserNotifications)).Methods(http.MethodGet)
-	a.router.HandleFunc("/notifications/{notificationId}/read", middleware.AuthMiddleware(a.handleMarkNotificationAsRead)).Methods(http.MethodPost)
+	a.router.Handle("/notifications", a.auth.RequireAuth(http.HandlerFunc(a.handleGetUserNotifications))).Methods(http.MethodGet)
+	a.router.Handle("/notifications/{notificationId}/read", a.auth.RequireAuth(http.HandlerFunc(a.handleMarkNotificationAsRead))).Methods(http.MethodPost)
 }
 
 // Handler returns the HTTP handler for the API

@@ -27,6 +27,7 @@ func main() {
 	plantRepo := impl.NewPlantRepository(database)
 	shopRepo := impl.NewShopRepository(database)
 	recommendationRepo := impl.NewRecommendationRepository(database)
+	notificationRepo := impl.NewNotificationRepository(database)
 
 	// Create auth middleware
 	auth := middleware.NewAuth(cfg.Auth.JWTSecret)
@@ -42,6 +43,7 @@ func main() {
 		cfg.YandexGPT.APIKey,
 		cfg.YandexGPT.Model,
 	)
+	notificationService := services.NewNotificationService(notificationRepo, plantRepo)
 
 	// Create API
 	api := api.New(
@@ -50,6 +52,7 @@ func main() {
 		plantService,
 		shopService,
 		recommendationService,
+		notificationService,
 		auth,
 	)
 

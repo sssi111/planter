@@ -104,6 +104,8 @@ type UserPlant struct {
 	NextWatering *time.Time `json:"nextWatering,omitempty" db:"next_watering"`
 	CreatedAt    time.Time  `json:"createdAt" db:"created_at"`
 	UpdatedAt    time.Time  `json:"updatedAt" db:"updated_at"`
+	// Additional fields for response
+	Plant        *Plant     `json:"plant,omitempty" db:"-"`
 }
 
 // UserFavoritePlant represents a plant favorited by a user

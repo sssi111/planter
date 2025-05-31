@@ -478,12 +478,12 @@ func (r *PlantRepository) CreatePlant(ctx context.Context, plant *models.Plant, 
 }
 
 // GetAllUserPlantsForWateringCheck gets all user plants that need to be checked for watering
-func (r *PlantRepository) GetAllUserPlantsForWateringCheck(ctx context.Context) ([]*models.Plant, error) {
+func (r *PlantRepository) GetAllUserPlantsForWateringCheck(ctx context.Context) ([]*models.UserPlant, error) {
 	rows, err := r.db.QueryxContext(ctx, `
-		SELECT p.id, p.name, p.scientific_name, p.description, p.image_url,
-			   up.user_id, up.next_watering
-		FROM plants p
-		JOIN user_plants up ON p.id = up.plant_id
+		SELECT up.id, up.user_id, up.plant_id, up.location, up.last_watered, up.next_watering,
+			   p.name, p.scientific_name, p.description, p.image_url
+		FROM user_plants up
+		JOIN plants p ON up.plant_id = p.id
 		WHERE up.next_watering IS NOT NULL
 		ORDER BY up.next_watering ASC
 	`)
@@ -492,22 +492,33 @@ func (r *PlantRepository) GetAllUserPlantsForWateringCheck(ctx context.Context) 
 	}
 	defer rows.Close()
 
-	var plants []*models.Plant
+	var userPlants []*models.UserPlant
 	for rows.Next() {
-		var plant models.Plant
+		var userPlant models.UserPlant
+		var plantName, scientificName, description, imageURL string
 		err := rows.Scan(
-			&plant.ID, &plant.Name, &plant.ScientificName, &plant.Description,
-			&plant.ImageURL, &plant.UserID, &plant.NextWatering,
+			&userPlant.ID, &userPlant.UserID, &userPlant.PlantID, &userPlant.Location,
+			&userPlant.LastWatered, &userPlant.NextWatering,
+			&plantName, &scientificName, &description, &imageURL,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan plant: %w", err)
+			return nil, fmt.Errorf("failed to scan user plant: %w", err)
 		}
-		plants = append(plants, &plant)
+		
+		// Create a Plant model with minimal fields for the notification
+		userPlant.Plant = &models.Plant{
+			ID:            userPlant.PlantID,
+			Name:          plantName,
+			ScientificName: scientificName,
+			Description:   description,
+			ImageURL:      imageURL,
+		}
+		userPlants = append(userPlants, &userPlant)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating plants: %w", err)
+		return nil, fmt.Errorf("error iterating user plants: %w", err)
 	}
 
-	return plants, nil
+	return userPlants, nil
 }
