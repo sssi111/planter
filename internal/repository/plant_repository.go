@@ -47,4 +47,7 @@ type PlantRepository interface {
 	
 	// IsFavorite checks if a plant is a favorite of a user
 	IsFavorite(ctx context.Context, userID uuid.UUID, plantID uuid.UUID) (bool, error)
+	
+	// CreatePlant creates a new plant
+	CreatePlant(ctx context.Context, plant *models.Plant, careInstructions *models.CareInstructions) (*models.Plant, error)
 }

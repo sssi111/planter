@@ -1,0 +1,92 @@
+[
+  {
+    "name": "Монстера",
+    "scientificName": "Monstera deliciosa",
+    "description": "Монстера - популярное комнатное растение с крупными, глянцевыми, перфорированными листьями. Это тропическое растение, которое может вырасти до впечатляющих размеров в домашних условиях.",
+    "imageUrl": "https://example.com/images/monstera.jpg",
+    "careInstructions": {
+      "wateringFrequency": 7,
+      "sunlight": "MEDIUM",
+      "temperature": {
+        "min": 18,
+        "max": 30
+      },
+      "humidity": "MEDIUM",
+      "soilType": "Рыхлая, богатая органикой почва с хорошим дренажем",
+      "fertilizerFrequency": 30,
+      "additionalNotes": "Протирайте листья влажной тканью для удаления пыли. Поддерживайте опору для вьющихся стеблей."
+    }
+  },
+  {
+    "name": "Фикус лировидный",
+    "scientificName": "Ficus lyrata",
+    "description": "Фикус лировидный, также известный как фикус лирата, - это эффектное комнатное растение с большими, скрипкообразными листьями. Он может вырасти до высоты потолка в домашних условиях.",
+    "imageUrl": "https://example.com/images/fiddle-leaf-fig.jpg",
+    "careInstructions": {
+      "wateringFrequency": 10,
+      "sunlight": "MEDIUM",
+      "temperature": {
+        "min": 18,
+        "max": 24
+      },
+      "humidity": "MEDIUM",
+      "soilType": "Хорошо дренированная почва для комнатных растений",
+      "fertilizerFrequency": 30,
+      "additionalNotes": "Не любит перемещения. Избегайте сквозняков и резких перепадов температуры."
+    }
+  },
+  {
+    "name": "Сансевиерия",
+    "scientificName": "Sansevieria trifasciata",
+    "description": "Сансевиерия, также известная как 'Щучий хвост' или 'Тёщин язык', - это выносливое суккулентное растение с длинными, жесткими листьями. Это одно из самых неприхотливых комнатных растений.",
+    "imageUrl": "https://example.com/images/snake-plant.jpg",
+    "careInstructions": {
+      "wateringFrequency": 14,
+      "sunlight": "LOW",
+      "temperature": {
+        "min": 15,
+        "max": 30
+      },
+      "humidity": "LOW",
+      "soilType": "Хорошо дренированная, песчаная почва",
+      "fertilizerFrequency": 60,
+      "additionalNotes": "Очень выносливое растение, которое может выжить при минимальном уходе. Отлично очищает воздух."
+    }
+  },
+  {
+    "name": "Спатифиллум",
+    "scientificName": "Spathiphyllum wallisii",
+    "description": "Спатифиллум, также известный как 'Женское счастье', - это популярное комнатное растение с глянцевыми темно-зелеными листьями и характерными белыми цветами в форме паруса.",
+    "imageUrl": "https://example.com/images/peace-lily.jpg",
+    "careInstructions": {
+      "wateringFrequency": 5,
+      "sunlight": "LOW",
+      "temperature": {
+        "min": 18,
+        "max": 30
+      },
+      "humidity": "HIGH",
+      "soilType": "Богатая, хорошо дренированная почва",
+      "fertilizerFrequency": 30,
+      "additionalNotes": "Листья опускаются, когда растение нуждается в поливе. Очищает воздух от вредных веществ."
+    }
+  },
+  {
+    "name": "Замиокулькас",
+    "scientificName": "Zamioculcas zamiifolia",
+    "description": "Замиокулькас, также известный как 'ZZ растение', - это выносливое комнатное растение с глянцевыми, темно-зелеными листьями. Это одно из самых неприхотливых комнатных растений.",
+    "imageUrl": "https://example.com/images/zz-plant.jpg",
+    "careInstructions": {
+      "wateringFrequency": 14,
+      "sunlight": "LOW",
+      "temperature": {
+        "min": 18,
+        "max": 26
+      },
+      "humidity": "LOW",
+      "soilType": "Хорошо дренированная, песчаная почва",
+      "fertilizerFrequency": 60,
+      "additionalNotes": "Очень выносливое растение, которое может выжить при минимальном уходе. Избегайте переувлажнения."
+    }
+  }
+]

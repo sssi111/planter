@@ -81,7 +81,21 @@ func (a *API) setupRoutes() {
 	// Recommendation routes
 	recommendationRouter := a.router.PathPrefix("/recommendations").Subrouter()
 	recommendationRouter.HandleFunc("/questionnaire", a.handleSaveQuestionnaire).Methods(http.MethodPost)
+	recommendationRouter.HandleFunc("/questionnaire/detailed", a.handleSaveDetailedQuestionnaire).Methods(http.MethodPost)
 	recommendationRouter.HandleFunc("/questionnaire/{questionnaireId}", a.handleGetRecommendations).Methods(http.MethodGet)
+	
+	// Admin routes
+	adminRouter := a.router.PathPrefix("/admin").Subrouter()
+	adminRouter.HandleFunc("/plants", a.handleAdminCreatePlant).Methods(http.MethodPost)
+	
+	// Chat routes (require authentication)
+	chatRouter := a.router.PathPrefix("/chat").Subrouter()
+	chatRouter.Use(a.auth.RequireAuth)
+	chatRouter.HandleFunc("/sessions", a.handleCreateChatSession).Methods(http.MethodPost)
+	chatRouter.HandleFunc("/sessions", a.handleGetChatSessions).Methods(http.MethodGet)
+	chatRouter.HandleFunc("/sessions/{sessionId}", a.handleGetChatSession).Methods(http.MethodGet)
+	chatRouter.HandleFunc("/sessions/{sessionId}/messages", a.handleGetChatMessages).Methods(http.MethodGet)
+	chatRouter.HandleFunc("/sessions/{sessionId}/messages", a.handleSendChatMessage).Methods(http.MethodPost)
 }
 
 // Handler returns the HTTP handler for the API
@@ -94,7 +108,8 @@ func (a *API) Handler() http.Handler {
 		AllowCredentials: true,
 	})
 
-	return c.Handler(a.router)
+	// Wrap router with logging middleware and CORS
+	return c.Handler(middleware.LoggingMiddleware(a.router))
 }
 
 // Start starts the API server

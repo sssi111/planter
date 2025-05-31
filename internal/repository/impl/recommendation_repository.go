@@ -140,3 +140,103 @@ func (r *RecommendationRepository) GetRecommendedPlants(ctx context.Context, que
 
 	return plants, nil
 }
+
+// CreateChatSession creates a new chat session
+func (r *RecommendationRepository) CreateChatSession(ctx context.Context, userID uuid.UUID, title string) (*models.ChatSession, error) {
+	session := &models.ChatSession{
+		UserID: userID,
+		Title:  title,
+	}
+	err := r.db.QueryRowxContext(ctx, `
+		INSERT INTO chat_sessions (user_id, title)
+		VALUES ($1, $2)
+		RETURNING id, created_at, updated_at, last_used
+	`, session.UserID, session.Title).
+		Scan(&session.ID, &session.CreatedAt, &session.UpdatedAt, &session.LastUsed)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chat session: %w", err)
+	}
+
+	return session, nil
+}
+
+// GetChatSession gets a chat session by ID
+func (r *RecommendationRepository) GetChatSession(ctx context.Context, id uuid.UUID) (*models.ChatSession, error) {
+	var session models.ChatSession
+	err := r.db.GetContext(ctx, &session, `
+		SELECT id, user_id, title, created_at, updated_at, last_used
+		FROM chat_sessions
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("chat session not found: %w", err)
+		}
+		return nil, fmt.Errorf("failed to get chat session: %w", err)
+	}
+	return &session, nil
+}
+
+// GetChatSessionsByUser gets all chat sessions for a user
+func (r *RecommendationRepository) GetChatSessionsByUser(ctx context.Context, userID uuid.UUID) ([]*models.ChatSession, error) {
+	var sessions []*models.ChatSession
+	err := r.db.SelectContext(ctx, &sessions, `
+		SELECT id, user_id, title, created_at, updated_at, last_used
+		FROM chat_sessions
+		WHERE user_id = $1
+		ORDER BY last_used DESC
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chat sessions: %w", err)
+	}
+	return sessions, nil
+}
+
+// SaveChatMessage saves a chat message
+func (r *RecommendationRepository) SaveChatMessage(ctx context.Context, message *models.ChatMessage) error {
+	err := r.db.QueryRowxContext(ctx, `
+		INSERT INTO chat_messages (session_id, user_id, role, content)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, created_at
+	`, message.SessionID, message.UserID, message.Role, message.Content).
+		Scan(&message.ID, &message.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("failed to save chat message: %w", err)
+	}
+	return nil
+}
+
+// GetChatMessages gets all messages for a chat session
+func (r *RecommendationRepository) GetChatMessages(ctx context.Context, sessionID uuid.UUID) ([]*models.ChatMessage, error) {
+	var messages []*models.ChatMessage
+	err := r.db.SelectContext(ctx, &messages, `
+		SELECT id, session_id, user_id, role, content, created_at
+		FROM chat_messages
+		WHERE session_id = $1
+		ORDER BY created_at ASC
+	`, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chat messages: %w", err)
+	}
+	return messages, nil
+}
+
+// UpdateChatSessionLastUsed updates the last used timestamp for a chat session
+func (r *RecommendationRepository) UpdateChatSessionLastUsed(ctx context.Context, sessionID uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE chat_sessions
+		SET last_used = NOW(), updated_at = NOW()
+		WHERE id = $1
+	`, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to update chat session last used: %w", err)
+	}
+	return nil
+}
+
+// SaveDetailedQuestionnaire saves a detailed plant questionnaire
+func (r *RecommendationRepository) SaveDetailedQuestionnaire(ctx context.Context, questionnaire *models.DetailedQuestionnaireRequest) (*models.PlantQuestionnaire, error) {
+	// This method is not needed as we're using the standard SaveQuestionnaire method
+	// with additional preferences text that includes all the detailed information
+	return nil, fmt.Errorf("not implemented: use SaveQuestionnaire instead")
+}
