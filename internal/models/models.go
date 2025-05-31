@@ -196,3 +196,48 @@ type QuestionnaireRequest struct {
 	PreferredLocation    *string       `json:"preferredLocation,omitempty"`
 	AdditionalPreferences *string       `json:"additionalPreferences,omitempty"`
 }
+
+// ChatMessage represents a message in a chat session
+type ChatMessage struct {
+	ID        uuid.UUID `json:"id" db:"id"`
+	SessionID uuid.UUID `json:"sessionId" db:"session_id"`
+	UserID    uuid.UUID `json:"userId" db:"user_id"`
+	Role      string    `json:"role" db:"role"` // "user" or "assistant"
+	Content   string    `json:"content" db:"content"`
+	CreatedAt time.Time `json:"createdAt" db:"created_at"`
+}
+
+// ChatSession represents a chat session with Yandex GPT
+type ChatSession struct {
+	ID        uuid.UUID  `json:"id" db:"id"`
+	UserID    uuid.UUID  `json:"userId" db:"user_id"`
+	Title     string     `json:"title" db:"title"`
+	CreatedAt time.Time  `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time  `json:"updatedAt" db:"updated_at"`
+	LastUsed  time.Time  `json:"lastUsed" db:"last_used"`
+}
+
+// ChatRequest represents a request to send a message to the chat
+type ChatRequest struct {
+	Message string `json:"message" validate:"required"`
+}
+
+// ChatResponse represents a response from the chat
+type ChatResponse struct {
+	Message ChatMessage `json:"message"`
+}
+
+// DetailedQuestionnaireRequest represents a detailed plant questionnaire request
+type DetailedQuestionnaireRequest struct {
+	SunlightPreference    SunlightLevel `json:"sunlightPreference" validate:"required,oneof=LOW MEDIUM HIGH"`
+	PetFriendly           bool          `json:"petFriendly"`
+	CareLevel             int           `json:"careLevel" validate:"required,min=1,max=5"`
+	PreferredLocation     *string       `json:"preferredLocation,omitempty"`
+	HasChildren           bool          `json:"hasChildren"`
+	PlantSize             string        `json:"plantSize" validate:"required,oneof=SMALL MEDIUM LARGE"`
+	FloweringPreference   bool          `json:"floweringPreference"`
+	AirPurifying          bool          `json:"airPurifying"`
+	WateringFrequency     string        `json:"wateringFrequency" validate:"required,oneof=RARE REGULAR FREQUENT"`
+	ExperienceLevel       string        `json:"experienceLevel" validate:"required,oneof=BEGINNER INTERMEDIATE ADVANCED"`
+	AdditionalPreferences *string       `json:"additionalPreferences,omitempty"`
+}

@@ -181,3 +181,42 @@ func (s *PlantService) RemoveUserPlant(ctx context.Context, userID uuid.UUID, pl
 	}
 	return nil
 }
+
+// CreatePlant creates a new plant
+func (s *PlantService) CreatePlant(ctx context.Context, plant *models.Plant, careInstructions *models.CareInstructions) (*models.Plant, error) {
+	// Validate plant data
+	if plant.Name == "" {
+		return nil, fmt.Errorf("plant name is required")
+	}
+	if plant.ScientificName == "" {
+		return nil, fmt.Errorf("scientific name is required")
+	}
+	if plant.Description == "" {
+		return nil, fmt.Errorf("description is required")
+	}
+	if plant.ImageURL == "" {
+		return nil, fmt.Errorf("image URL is required")
+	}
+
+	// Validate care instructions
+	if careInstructions.WateringFrequency <= 0 {
+		return nil, fmt.Errorf("watering frequency must be positive")
+	}
+	if careInstructions.Temperature.Min >= careInstructions.Temperature.Max {
+		return nil, fmt.Errorf("minimum temperature must be less than maximum temperature")
+	}
+	if careInstructions.SoilType == "" {
+		return nil, fmt.Errorf("soil type is required")
+	}
+	if careInstructions.FertilizerFrequency <= 0 {
+		return nil, fmt.Errorf("fertilizer frequency must be positive")
+	}
+
+	// Create the plant
+	createdPlant, err := s.plantRepo.CreatePlant(ctx, plant, careInstructions)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plant: %w", err)
+	}
+
+	return createdPlant, nil
+}

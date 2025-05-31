@@ -405,3 +405,74 @@ func (r *PlantRepository) IsFavorite(ctx context.Context, userID uuid.UUID, plan
 	}
 	return count > 0, nil
 }
+
+// CreatePlant creates a new plant
+func (r *PlantRepository) CreatePlant(ctx context.Context, plant *models.Plant, careInstructions *models.CareInstructions) (*models.Plant, error) {
+	// Begin a transaction
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Create care instructions
+	err = tx.QueryRowxContext(ctx, `
+		INSERT INTO care_instructions (
+			watering_frequency, sunlight, min_temperature, max_temperature,
+			humidity, soil_type, fertilizer_frequency, additional_notes
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, created_at, updated_at
+	`,
+		careInstructions.WateringFrequency,
+		careInstructions.Sunlight,
+		careInstructions.Temperature.Min,
+		careInstructions.Temperature.Max,
+		careInstructions.Humidity,
+		careInstructions.SoilType,
+		careInstructions.FertilizerFrequency,
+		careInstructions.AdditionalNotes,
+	).Scan(
+		&careInstructions.ID,
+		&careInstructions.CreatedAt,
+		&careInstructions.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create care instructions: %w", err)
+	}
+
+	// Create plant
+	err = tx.QueryRowxContext(ctx, `
+		INSERT INTO plants (
+			name, scientific_name, description, image_url,
+			care_instructions_id, price, shop_id
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, created_at, updated_at
+	`,
+		plant.Name,
+		plant.ScientificName,
+		plant.Description,
+		plant.ImageURL,
+		careInstructions.ID,
+		plant.Price,
+		plant.ShopID,
+	).Scan(
+		&plant.ID,
+		&plant.CreatedAt,
+		&plant.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create plant: %w", err)
+	}
+
+	// Set care instructions
+	plant.CareInstructions = *careInstructions
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return plant, nil
+}

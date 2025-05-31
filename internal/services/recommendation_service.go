@@ -50,6 +50,7 @@ type RecommendationService struct {
 	plantRepo          repository.PlantRepository
 	yandexGPTAPIKey    string
 	yandexGPTModel     string
+	chatSessions       map[uuid.UUID][]Message // In-memory cache for chat sessions
 }
 
 // NewRecommendationService creates a new recommendation service
@@ -64,6 +65,7 @@ func NewRecommendationService(
 		plantRepo:          plantRepo,
 		yandexGPTAPIKey:    yandexGPTAPIKey,
 		yandexGPTModel:     yandexGPTModel,
+		chatSessions:       make(map[uuid.UUID][]Message),
 	}
 }
 
@@ -78,6 +80,47 @@ func (s *RecommendationService) SaveQuestionnaire(ctx context.Context, userID *u
 		PreferredLocation:    questionnaire.PreferredLocation,
 		AdditionalPreferences: questionnaire.AdditionalPreferences,
 	}
+
+	// Save the questionnaire
+	err := s.recommendationRepo.SaveQuestionnaire(ctx, plantQuestionnaire)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save questionnaire: %w", err)
+	}
+
+	return plantQuestionnaire, nil
+}
+
+// SaveDetailedQuestionnaire saves a detailed plant questionnaire and generates recommendations
+func (s *RecommendationService) SaveDetailedQuestionnaire(
+	ctx context.Context, 
+	userID *uuid.UUID, 
+	questionnaire *models.DetailedQuestionnaireRequest,
+) (*models.PlantQuestionnaire, error) {
+	// Convert detailed questionnaire to standard questionnaire
+	plantQuestionnaire := &models.PlantQuestionnaire{
+		UserID:               userID,
+		SunlightPreference:   questionnaire.SunlightPreference,
+		PetFriendly:          questionnaire.PetFriendly,
+		CareLevel:            questionnaire.CareLevel,
+		PreferredLocation:    questionnaire.PreferredLocation,
+	}
+
+	// Create additional preferences text that includes all the detailed information
+	additionalPrefs := fmt.Sprintf(
+		"Размер растения: %s, Цветущее: %t, Очищающее воздух: %t, Частота полива: %s, Уровень опыта: %s, Есть дети: %t",
+		questionnaire.PlantSize,
+		questionnaire.FloweringPreference,
+		questionnaire.AirPurifying,
+		questionnaire.WateringFrequency,
+		questionnaire.ExperienceLevel,
+		questionnaire.HasChildren,
+	)
+
+	if questionnaire.AdditionalPreferences != nil {
+		additionalPrefs += ", " + *questionnaire.AdditionalPreferences
+	}
+
+	plantQuestionnaire.AdditionalPreferences = &additionalPrefs
 
 	// Save the questionnaire
 	err := s.recommendationRepo.SaveQuestionnaire(ctx, plantQuestionnaire)
@@ -157,7 +200,7 @@ func (s *RecommendationService) generateRecommendationsWithYandexGPT(
 	prompt := s.preparePrompt(questionnaire, allPlants)
 
 	// Call Yandex GPT API
-	response, err := s.callYandexGPTAPI(ctx, prompt)
+	response, err := s.callYandexGPTAPI(ctx, prompt, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call Yandex GPT API: %w", err)
 	}
@@ -249,8 +292,8 @@ func (s *RecommendationService) preparePrompt(questionnaire *models.PlantQuestio
 	return prompt
 }
 
-// callYandexGPTAPI calls the Yandex GPT API
-func (s *RecommendationService) callYandexGPTAPI(ctx context.Context, prompt string) (string, error) {
+// callYandexGPTAPI calls the Yandex GPT API with a prompt or messages
+func (s *RecommendationService) callYandexGPTAPI(ctx context.Context, prompt string, messages []Message) (string, error) {
 	// Prepare the request
 	requestBody := YandexGPTRequest{
 		ModelURI: s.yandexGPTModel,
@@ -258,12 +301,18 @@ func (s *RecommendationService) callYandexGPTAPI(ctx context.Context, prompt str
 			Temperature: 0.7,
 			MaxTokens:   2000,
 		},
-		Messages: []Message{
+	}
+
+	// Use either prompt or messages
+	if prompt != "" {
+		requestBody.Messages = []Message{
 			{
 				Role: "user",
 				Text: prompt,
 			},
-		},
+		}
+	} else if messages != nil {
+		requestBody.Messages = messages
 	}
 
 	// Convert the request to JSON
@@ -393,4 +442,163 @@ func (s *RecommendationService) parseYandexGPTResponse(
 	}
 
 	return recommendations, nil
+}
+
+// CreateChatSession creates a new chat session
+func (s *RecommendationService) CreateChatSession(ctx context.Context, userID uuid.UUID) (*models.ChatSession, error) {
+	// Create a new chat session
+	session, err := s.recommendationRepo.CreateChatSession(ctx, userID, "Разговор о растениях")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create chat session: %w", err)
+	}
+
+	// Initialize the in-memory session with a system message
+	systemMessage := Message{
+		Role: "system",
+		Text: "Ты - эксперт по растениям. Помогай пользователям с вопросами о выращивании, уходе и выборе растений. Отвечай на русском языке.",
+	}
+	s.chatSessions[session.ID] = []Message{systemMessage}
+
+	return session, nil
+}
+
+// GetChatSession gets a chat session by ID
+func (s *RecommendationService) GetChatSession(ctx context.Context, id uuid.UUID) (*models.ChatSession, error) {
+	return s.recommendationRepo.GetChatSession(ctx, id)
+}
+
+// GetChatSessionsByUser gets all chat sessions for a user
+func (s *RecommendationService) GetChatSessionsByUser(ctx context.Context, userID uuid.UUID) ([]*models.ChatSession, error) {
+	return s.recommendationRepo.GetChatSessionsByUser(ctx, userID)
+}
+
+// SendChatMessage sends a message to the chat and gets a response
+func (s *RecommendationService) SendChatMessage(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	userID uuid.UUID,
+	message string,
+) (*models.ChatMessage, error) {
+	// Get the chat session
+	session, err := s.recommendationRepo.GetChatSession(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chat session: %w", err)
+	}
+
+	// Check if the user owns the session
+	if session.UserID != userID {
+		return nil, fmt.Errorf("user does not own this chat session")
+	}
+
+	// Create and save the user message
+	userMessage := &models.ChatMessage{
+		ID:        uuid.New(),
+		SessionID: sessionID,
+		UserID:    userID,
+		Role:      "user",
+		Content:   message,
+		CreatedAt: time.Now(),
+	}
+	
+	err = s.recommendationRepo.SaveChatMessage(ctx, userMessage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save user message: %w", err)
+	}
+
+	// Get all previous messages for context
+	dbMessages, err := s.recommendationRepo.GetChatMessages(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chat messages: %w", err)
+	}
+
+	// Prepare messages for the API call
+	var messages []Message
+	
+	// Check if we have in-memory session context
+	if sessionMessages, ok := s.chatSessions[sessionID]; ok {
+		// Use the in-memory session which includes the system message
+		messages = sessionMessages
+	} else {
+		// Initialize with a system message
+		messages = []Message{
+			{
+				Role: "system",
+				Text: "Ты - эксперт по растениям. Помогай пользователям с вопросами о выращивании, уходе и выборе растений. Отвечай на русском языке.",
+			},
+		}
+	}
+
+	// Add previous messages from the database (up to the last 10 messages)
+	maxMessages := 10
+	startIdx := 0
+	if len(dbMessages) > maxMessages {
+		startIdx = len(dbMessages) - maxMessages
+	}
+	
+	for i := startIdx; i < len(dbMessages); i++ {
+		msg := dbMessages[i]
+		messages = append(messages, Message{
+			Role: msg.Role,
+			Text: msg.Content,
+		})
+	}
+
+	// Add the current user message
+	messages = append(messages, Message{
+		Role: "user",
+		Text: message,
+	})
+
+	// Call Yandex GPT API
+	response, err := s.callYandexGPTAPI(ctx, "", messages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call Yandex GPT API: %w", err)
+	}
+
+	// Create and save the assistant message
+	assistantMessage := &models.ChatMessage{
+		ID:        uuid.New(),
+		SessionID: sessionID,
+		UserID:    userID,
+		Role:      "assistant",
+		Content:   response,
+		CreatedAt: time.Now(),
+	}
+	
+	err = s.recommendationRepo.SaveChatMessage(ctx, assistantMessage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to save assistant message: %w", err)
+	}
+
+	// Update the in-memory session
+	messages = append(messages, Message{
+		Role: "assistant",
+		Text: response,
+	})
+	s.chatSessions[sessionID] = messages
+
+	// Update the last used timestamp
+	err = s.recommendationRepo.UpdateChatSessionLastUsed(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update chat session last used: %w", err)
+	}
+
+	return assistantMessage, nil
+}
+
+// GetChatMessages gets all messages for a chat session
+func (s *RecommendationService) GetChatMessages(ctx context.Context, sessionID uuid.UUID, userID uuid.UUID) ([]*models.ChatMessage, error) {
+	// Get the chat session
+	session, err := s.recommendationRepo.GetChatSession(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chat session: %w", err)
+	}
+
+	// Check if the user owns the session
+	if session.UserID != userID {
+		return nil, fmt.Errorf("user does not own this chat session")
+	}
+
+	// Get all messages for the session
+	return s.recommendationRepo.GetChatMessages(ctx, sessionID)
 }

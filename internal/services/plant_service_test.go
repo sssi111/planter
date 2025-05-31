@@ -86,6 +86,66 @@ func (m *MockPlantRepository) IsFavorite(ctx context.Context, userID uuid.UUID, 
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *MockPlantRepository) CreatePlant(ctx context.Context, plant *models.Plant, careInstructions *models.CareInstructions) (*models.Plant, error) {
+	args := m.Called(ctx, plant, careInstructions)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Plant), args.Error(1)
+}
+
+// TestPlantService_CreatePlant tests the CreatePlant method
+func TestPlantService_CreatePlant(t *testing.T) {
+	// Create a mock repository
+	mockRepo := new(MockPlantRepository)
+
+	// Create a plant service
+	plantService := NewPlantService(mockRepo)
+
+	// Create test data
+	plant := &models.Plant{
+		Name:           "Test Plant",
+		ScientificName: "Testus Plantus",
+		Description:    "A test plant",
+		ImageURL:       "https://example.com/test-plant.jpg",
+	}
+
+	careInstructions := &models.CareInstructions{
+		WateringFrequency:   7,
+		Sunlight:            models.SunlightLevelMedium,
+		Temperature:         models.TemperatureRange{Min: 18, Max: 24},
+		Humidity:            models.HumidityLevelMedium,
+		SoilType:            "Well-draining",
+		FertilizerFrequency: 30,
+		AdditionalNotes:     "Keep away from direct sunlight",
+	}
+
+	// Expected result
+	expectedPlant := &models.Plant{
+		ID:               uuid.New(),
+		Name:             "Test Plant",
+		ScientificName:   "Testus Plantus",
+		Description:      "A test plant",
+		ImageURL:         "https://example.com/test-plant.jpg",
+		CareInstructions: *careInstructions,
+	}
+
+	// Set up the mock expectations
+	mockRepo.On("CreatePlant", mock.Anything, plant, careInstructions).Return(expectedPlant, nil)
+
+	// Call the method
+	result, err := plantService.CreatePlant(context.Background(), plant, careInstructions)
+
+	// Assert that there was no error
+	assert.NoError(t, err)
+
+	// Assert that the result is the expected plant
+	assert.Equal(t, expectedPlant, result)
+
+	// Verify that all expectations were met
+	mockRepo.AssertExpectations(t)
+}
+
 // TestPlantService_GetAllPlants tests the GetAllPlants method of the PlantService
 func TestPlantService_GetAllPlants(t *testing.T) {
 	// Create a mock plant repository

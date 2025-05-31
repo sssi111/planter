@@ -17,6 +17,10 @@ tags:
     description: Shop operations
   - name: Recommendations
     description: Plant recommendation operations
+  - name: Chat
+    description: Plant chat operations
+  - name: Admin
+    description: Administrative operations
 
 paths:
   /auth/login:
@@ -626,6 +630,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+                
+  /recommendations/questionnaire/detailed:
+    post:
+      tags:
+        - Recommendations
+      summary: Save detailed questionnaire
+      description: Save a detailed plant questionnaire with more specific preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DetailedQuestionnaireRequest'
+      responses:
+        '201':
+          description: Questionnaire saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantQuestionnaire'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /recommendations/questionnaire/{questionnaireId}:
     get:
@@ -651,6 +681,217 @@ paths:
                   $ref: '#/components/schemas/Plant'
         '404':
           description: Questionnaire not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /chat/sessions:
+    post:
+      tags:
+        - Chat
+      summary: Create chat session
+      description: Create a new chat session for plant-related conversations
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Chat session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSession'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+        - Chat
+      summary: Get chat sessions
+      description: Get all chat sessions for the authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Chat sessions found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatSession'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /chat/sessions/{sessionId}:
+    get:
+      tags:
+        - Chat
+      summary: Get chat session
+      description: Get a chat session by ID
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Chat session found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSession'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Chat session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /chat/sessions/{sessionId}/messages:
+    get:
+      tags:
+        - Chat
+      summary: Get chat messages
+      description: Get all messages for a chat session
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Chat messages found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChatMessage'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Chat session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Chat
+      summary: Send chat message
+      description: Send a message to the chat and get a response
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChatRequest'
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Chat session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+                
+  /admin/plants:
+    post:
+      tags:
+        - Admin
+      summary: Create plant
+      description: Create a new plant (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPlantRequest'
+      responses:
+        '201':
+          description: Plant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -900,6 +1141,174 @@ components:
           type: string
           format: date-time
 
+    DetailedQuestionnaireRequest:
+      type: object
+      properties:
+        sunlightPreference:
+          type: string
+          enum:
+            - LOW
+            - MEDIUM
+            - HIGH
+        petFriendly:
+          type: boolean
+        careLevel:
+          type: integer
+          minimum: 1
+          maximum: 5
+        preferredLocation:
+          type: string
+          nullable: true
+        hasChildren:
+          type: boolean
+        plantSize:
+          type: string
+          enum:
+            - SMALL
+            - MEDIUM
+            - LARGE
+        floweringPreference:
+          type: boolean
+        airPurifying:
+          type: boolean
+        wateringFrequency:
+          type: string
+          enum:
+            - RARE
+            - REGULAR
+            - FREQUENT
+        experienceLevel:
+          type: string
+          enum:
+            - BEGINNER
+            - INTERMEDIATE
+            - ADVANCED
+        additionalPreferences:
+          type: string
+          nullable: true
+      required:
+        - sunlightPreference
+        - petFriendly
+        - careLevel
+        - plantSize
+        - wateringFrequency
+        - experienceLevel
+        
+    ChatSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        lastUsed:
+          type: string
+          format: date-time
+          
+    ChatMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum:
+            - user
+            - assistant
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+          
+    ChatRequest:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+        
+    ChatResponse:
+      type: object
+      properties:
+        message:
+          $ref: '#/components/schemas/ChatMessage'
+          
+    AdminPlantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        scientificName:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+        price:
+          type: number
+          format: float
+          nullable: true
+        shopId:
+          type: string
+          nullable: true
+        careInstructions:
+          type: object
+          properties:
+            wateringFrequency:
+              type: integer
+              description: Watering frequency in days
+            sunlight:
+              type: string
+              enum:
+                - LOW
+                - MEDIUM
+                - HIGH
+            temperature:
+              type: object
+              properties:
+                min:
+                  type: integer
+                max:
+                  type: integer
+            humidity:
+              type: string
+              enum:
+                - LOW
+                - MEDIUM
+                - HIGH
+            soilType:
+              type: string
+            fertilizerFrequency:
+              type: integer
+              description: Fertilizer frequency in days
+            additionalNotes:
+              type: string
+      required:
+        - name
+        - scientificName
+        - description
+        - imageUrl
+        - careInstructions
+        
     Error:
       type: object
       properties:

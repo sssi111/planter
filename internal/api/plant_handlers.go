@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/anpanovv/planter/internal/middleware"
+	"github.com/anpanovv/planter/internal/models"
 	"github.com/anpanovv/planter/internal/utils"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -288,4 +289,45 @@ func (a *API) handleRemoveUserPlant(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with success
 	utils.RespondWithJSON(w, http.StatusOK, map[string]string{"message": "Plant removed from collection"})
+}
+
+// AdminPlantRequest represents the request body for creating a plant
+type AdminPlantRequest struct {
+	Name           string                  `json:"name"`
+	ScientificName string                  `json:"scientificName"`
+	Description    string                  `json:"description"`
+	ImageURL       string                  `json:"imageUrl"`
+	Price          *float64                `json:"price,omitempty"`
+	ShopID         *string                 `json:"shopId,omitempty"`
+	CareInstructions models.CareInstructions `json:"careInstructions"`
+}
+
+// handleAdminCreatePlant handles the admin create plant request
+func (a *API) handleAdminCreatePlant(w http.ResponseWriter, r *http.Request) {
+	// Parse the request body
+	var req AdminPlantRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		utils.RespondWithError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Create a new plant model
+	plant := &models.Plant{
+		Name:           req.Name,
+		ScientificName: req.ScientificName,
+		Description:    req.Description,
+		ImageURL:       req.ImageURL,
+		Price:          req.Price,
+		ShopID:         req.ShopID,
+	}
+
+	// Create the plant
+	createdPlant, err := a.plantService.CreatePlant(r.Context(), plant, &req.CareInstructions)
+	if err != nil {
+		utils.RespondWithError(w, http.StatusInternalServerError, "Failed to create plant: "+err.Error())
+		return
+	}
+
+	// Respond with the created plant
+	utils.RespondWithJSON(w, http.StatusCreated, createdPlant)
 }

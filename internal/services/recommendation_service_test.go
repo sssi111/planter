@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/anpanovv/planter/internal/models"
 	"github.com/google/uuid"
@@ -43,6 +44,50 @@ func (m *MockRecommendationRepository) GetRecommendedPlants(ctx context.Context,
 	return args.Get(0).([]*models.Plant), args.Error(1)
 }
 
+func (m *MockRecommendationRepository) SaveDetailedQuestionnaire(ctx context.Context, questionnaire *models.DetailedQuestionnaireRequest) (*models.PlantQuestionnaire, error) {
+	args := m.Called(ctx, questionnaire)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.PlantQuestionnaire), args.Error(1)
+}
+
+func (m *MockRecommendationRepository) CreateChatSession(ctx context.Context, userID uuid.UUID, title string) (*models.ChatSession, error) {
+	args := m.Called(ctx, userID, title)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.ChatSession), args.Error(1)
+}
+
+func (m *MockRecommendationRepository) GetChatSession(ctx context.Context, id uuid.UUID) (*models.ChatSession, error) {
+	args := m.Called(ctx, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.ChatSession), args.Error(1)
+}
+
+func (m *MockRecommendationRepository) GetChatSessionsByUser(ctx context.Context, userID uuid.UUID) ([]*models.ChatSession, error) {
+	args := m.Called(ctx, userID)
+	return args.Get(0).([]*models.ChatSession), args.Error(1)
+}
+
+func (m *MockRecommendationRepository) SaveChatMessage(ctx context.Context, message *models.ChatMessage) error {
+	args := m.Called(ctx, message)
+	return args.Error(0)
+}
+
+func (m *MockRecommendationRepository) GetChatMessages(ctx context.Context, sessionID uuid.UUID) ([]*models.ChatMessage, error) {
+	args := m.Called(ctx, sessionID)
+	return args.Get(0).([]*models.ChatMessage), args.Error(1)
+}
+
+func (m *MockRecommendationRepository) UpdateChatSessionLastUsed(ctx context.Context, sessionID uuid.UUID) error {
+	args := m.Called(ctx, sessionID)
+	return args.Error(0)
+}
+
 // TestRecommendationService_SaveQuestionnaire tests the SaveQuestionnaire method of the RecommendationService
 func TestRecommendationService_SaveQuestionnaire(t *testing.T) {
 	// Create mock repositories
@@ -52,10 +97,10 @@ func TestRecommendationService_SaveQuestionnaire(t *testing.T) {
 	// Create a test user ID and questionnaire request
 	userID := uuid.New()
 	questionnaireRequest := &models.QuestionnaireRequest{
-		SunlightPreference:   models.SunlightLevelMedium,
-		PetFriendly:          true,
-		CareLevel:            3,
-		PreferredLocation:    stringPtr("Living Room"),
+		SunlightPreference:    models.SunlightLevelMedium,
+		PetFriendly:           true,
+		CareLevel:             3,
+		PreferredLocation:     stringPtr("Living Room"),
 		AdditionalPreferences: stringPtr("Low maintenance"),
 	}
 
@@ -235,4 +280,296 @@ func TestRecommendationService_GenerateRecommendations(t *testing.T) {
 // Helper function to create a string pointer
 func stringPtr(s string) *string {
 	return &s
+}
+
+// TestRecommendationService_SaveDetailedQuestionnaire tests the SaveDetailedQuestionnaire method
+func TestRecommendationService_SaveDetailedQuestionnaire(t *testing.T) {
+	// Create mock repositories
+	mockRecommendationRepo := new(MockRecommendationRepository)
+	mockPlantRepo := new(MockPlantRepository)
+
+	// Create a test user ID and detailed questionnaire request
+	userID := uuid.New()
+	detailedQuestionnaireRequest := &models.DetailedQuestionnaireRequest{
+		SunlightPreference:    models.SunlightLevelMedium,
+		PetFriendly:           true,
+		CareLevel:             3,
+		PreferredLocation:     stringPtr("Living Room"),
+		HasChildren:           true,
+		PlantSize:             "MEDIUM",
+		FloweringPreference:   true,
+		AirPurifying:          true,
+		WateringFrequency:     "REGULAR",
+		ExperienceLevel:       "BEGINNER",
+		AdditionalPreferences: stringPtr("Low maintenance"),
+	}
+
+	// Expected plant questionnaire that would be created
+	expectedQuestionnaire := &models.PlantQuestionnaire{
+		ID:                 uuid.New(),
+		UserID:             &userID,
+		SunlightPreference: models.SunlightLevelMedium,
+		PetFriendly:        true,
+		CareLevel:          3,
+		PreferredLocation:  stringPtr("Living Room"),
+	}
+
+	// Set up the mock expectations
+	mockRecommendationRepo.On("SaveQuestionnaire", mock.Anything, mock.AnythingOfType("*models.PlantQuestionnaire")).
+		Return(nil).
+		Run(func(args mock.Arguments) {
+			questionnaire := args.Get(1).(*models.PlantQuestionnaire)
+			questionnaire.ID = expectedQuestionnaire.ID // Simulate the database generating an ID
+		})
+
+	// Create the recommendation service
+	recommendationService := NewRecommendationService(
+		mockRecommendationRepo,
+		mockPlantRepo,
+		"test-api-key",
+		"test-model",
+	)
+
+	// Test the SaveDetailedQuestionnaire method
+	result, err := recommendationService.SaveDetailedQuestionnaire(context.Background(), &userID, detailedQuestionnaireRequest)
+
+	// Assert that there was no error
+	assert.NoError(t, err)
+
+	// Assert that the result has the expected values
+	assert.Equal(t, expectedQuestionnaire.ID, result.ID)
+	assert.Equal(t, &userID, result.UserID)
+	assert.Equal(t, models.SunlightLevelMedium, result.SunlightPreference)
+	assert.Equal(t, true, result.PetFriendly)
+	assert.Equal(t, 3, result.CareLevel)
+	assert.Equal(t, stringPtr("Living Room"), result.PreferredLocation)
+
+	// Check that AdditionalPreferences contains all the detailed information
+	assert.NotNil(t, result.AdditionalPreferences)
+	assert.Contains(t, *result.AdditionalPreferences, "Размер растения: MEDIUM")
+	assert.Contains(t, *result.AdditionalPreferences, "Цветущее: true")
+	assert.Contains(t, *result.AdditionalPreferences, "Очищающее воздух: true")
+	assert.Contains(t, *result.AdditionalPreferences, "Частота полива: REGULAR")
+	assert.Contains(t, *result.AdditionalPreferences, "Уровень опыта: BEGINNER")
+	assert.Contains(t, *result.AdditionalPreferences, "Есть дети: true")
+	assert.Contains(t, *result.AdditionalPreferences, "Low maintenance")
+
+	// Verify that all expectations were met
+	mockRecommendationRepo.AssertExpectations(t)
+	mockPlantRepo.AssertExpectations(t)
+}
+
+// TestRecommendationService_CreateChatSession tests the CreateChatSession method
+func TestRecommendationService_CreateChatSession(t *testing.T) {
+	// Create mock repositories
+	mockRecommendationRepo := new(MockRecommendationRepository)
+	mockPlantRepo := new(MockPlantRepository)
+
+	// Create a test user ID
+	userID := uuid.New()
+
+	// Expected chat session
+	expectedSession := &models.ChatSession{
+		ID:        uuid.New(),
+		UserID:    userID,
+		Title:     "Разговор о растениях",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		LastUsed:  time.Now(),
+	}
+
+	// Set up the mock expectations
+	mockRecommendationRepo.On("CreateChatSession", mock.Anything, userID, "Разговор о растениях").
+		Return(expectedSession, nil)
+
+	// Create the recommendation service
+	recommendationService := NewRecommendationService(
+		mockRecommendationRepo,
+		mockPlantRepo,
+		"test-api-key",
+		"test-model",
+	)
+
+	// Test the CreateChatSession method
+	result, err := recommendationService.CreateChatSession(context.Background(), userID)
+
+	// Assert that there was no error
+	assert.NoError(t, err)
+
+	// Assert that the result has the expected values
+	assert.Equal(t, expectedSession.ID, result.ID)
+	assert.Equal(t, userID, result.UserID)
+	assert.Equal(t, "Разговор о растениях", result.Title)
+
+	// Verify that the in-memory session was initialized with a system message
+	sessionMessages, ok := recommendationService.chatSessions[result.ID]
+	assert.True(t, ok)
+	assert.Equal(t, 1, len(sessionMessages))
+	assert.Equal(t, "system", sessionMessages[0].Role)
+	assert.Contains(t, sessionMessages[0].Text, "эксперт по растениям")
+
+	// Verify that all expectations were met
+	mockRecommendationRepo.AssertExpectations(t)
+	mockPlantRepo.AssertExpectations(t)
+}
+
+// MockRecommendationServiceWithResponse is a mock implementation of the RecommendationService
+// that returns a fixed response for the callYandexGPTAPI method
+type MockRecommendationServiceWithResponse struct {
+	*RecommendationService
+	fixedResponse string
+}
+
+// callYandexGPTAPI is a mock implementation that returns a fixed response
+func (m *MockRecommendationServiceWithResponse) callYandexGPTAPI(ctx context.Context, prompt string, messages []Message) (string, error) {
+	return m.fixedResponse, nil
+}
+
+// TestRecommendationService_SendChatMessage tests the SendChatMessage method
+func TestRecommendationService_SendChatMessage(t *testing.T) {
+	// Create mock repositories
+	mockRecommendationRepo := new(MockRecommendationRepository)
+	mockPlantRepo := new(MockPlantRepository)
+
+	// Create test data
+	userID := uuid.New()
+	sessionID := uuid.New()
+	userMessage := "Какие растения подходят для темной комнаты?"
+	
+	// Expected chat session
+	session := &models.ChatSession{
+		ID:        sessionID,
+		UserID:    userID,
+		Title:     "Разговор о растениях",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		LastUsed:  time.Now(),
+	}
+
+	// Expected assistant response
+	assistantResponse := "Для темной комнаты хорошо подходят следующие растения: сансевиерия, аспидистра, спатифиллум, замиокулькас."
+
+	// Set up the mock expectations
+	mockRecommendationRepo.On("GetChatSession", mock.Anything, sessionID).Return(session, nil)
+	mockRecommendationRepo.On("SaveChatMessage", mock.Anything, mock.MatchedBy(func(m *models.ChatMessage) bool {
+		return m.SessionID == sessionID && m.UserID == userID && m.Role == "user" && m.Content == userMessage
+	})).Return(nil)
+	mockRecommendationRepo.On("GetChatMessages", mock.Anything, sessionID).Return([]*models.ChatMessage{}, nil)
+	mockRecommendationRepo.On("SaveChatMessage", mock.Anything, mock.MatchedBy(func(m *models.ChatMessage) bool {
+		return m.SessionID == sessionID && m.UserID == userID && m.Role == "assistant"
+	})).Return(nil)
+	mockRecommendationRepo.On("UpdateChatSessionLastUsed", mock.Anything, sessionID).Return(nil)
+
+	// Create a base recommendation service
+	baseService := NewRecommendationService(
+		mockRecommendationRepo,
+		mockPlantRepo,
+		"test-api-key",
+		"test-model",
+	)
+
+	// Create a mock service that returns a fixed response
+	mockService := &MockRecommendationServiceWithResponse{
+		RecommendationService: baseService,
+		fixedResponse:         assistantResponse,
+	}
+
+	// Initialize the in-memory session
+	mockService.chatSessions[sessionID] = []Message{
+		{
+			Role: "system",
+			Text: "Ты - эксперт по растениям. Помогай пользователям с вопросами о выращивании, уходе и выборе растений. Отвечай на русском языке.",
+		},
+	}
+
+	// Test the SendChatMessage method
+	result, err := mockService.SendChatMessage(context.Background(), sessionID, userID, userMessage)
+
+	// Assert that there was no error
+	assert.NoError(t, err)
+
+	// Assert that the result has the expected values
+	assert.Equal(t, sessionID, result.SessionID)
+	assert.Equal(t, userID, result.UserID)
+	assert.Equal(t, "assistant", result.Role)
+	assert.Equal(t, assistantResponse, result.Content)
+
+	// Verify that the in-memory session was updated
+	sessionMessages, ok := mockService.chatSessions[sessionID]
+	assert.True(t, ok)
+	assert.Equal(t, 3, len(sessionMessages)) // system + user + assistant
+	assert.Equal(t, "system", sessionMessages[0].Role)
+	assert.Equal(t, "user", sessionMessages[1].Role)
+	assert.Equal(t, userMessage, sessionMessages[1].Text)
+	assert.Equal(t, "assistant", sessionMessages[2].Role)
+	assert.Equal(t, assistantResponse, sessionMessages[2].Text)
+
+	// Verify that all expectations were met
+	mockRecommendationRepo.AssertExpectations(t)
+	mockPlantRepo.AssertExpectations(t)
+}
+
+// TestRecommendationService_GetChatMessages tests the GetChatMessages method
+func TestRecommendationService_GetChatMessages(t *testing.T) {
+	// Create mock repositories
+	mockRecommendationRepo := new(MockRecommendationRepository)
+	mockPlantRepo := new(MockPlantRepository)
+
+	// Create test data
+	userID := uuid.New()
+	sessionID := uuid.New()
+
+	// Expected chat session
+	session := &models.ChatSession{
+		ID:        sessionID,
+		UserID:    userID,
+		Title:     "Разговор о растениях",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		LastUsed:  time.Now(),
+	}
+
+	// Expected chat messages
+	message1 := &models.ChatMessage{
+		ID:        uuid.New(),
+		SessionID: sessionID,
+		UserID:    userID,
+		Role:      "user",
+		Content:   "Какие растения подходят для темной комнаты?",
+		CreatedAt: time.Now(),
+	}
+	message2 := &models.ChatMessage{
+		ID:        uuid.New(),
+		SessionID: sessionID,
+		UserID:    userID,
+		Role:      "assistant",
+		Content:   "Для темной комнаты хорошо подходят следующие растения: сансевиерия, аспидистра, спатифиллум, замиокулькас.",
+		CreatedAt: time.Now(),
+	}
+	expectedMessages := []*models.ChatMessage{message1, message2}
+
+	// Set up the mock expectations
+	mockRecommendationRepo.On("GetChatSession", mock.Anything, sessionID).Return(session, nil)
+	mockRecommendationRepo.On("GetChatMessages", mock.Anything, sessionID).Return(expectedMessages, nil)
+
+	// Create the recommendation service
+	recommendationService := NewRecommendationService(
+		mockRecommendationRepo,
+		mockPlantRepo,
+		"test-api-key",
+		"test-model",
+	)
+
+	// Test the GetChatMessages method
+	result, err := recommendationService.GetChatMessages(context.Background(), sessionID, userID)
+
+	// Assert that there was no error
+	assert.NoError(t, err)
+
+	// Assert that the result has the expected values
+	assert.Equal(t, expectedMessages, result)
+
+	// Verify that all expectations were met
+	mockRecommendationRepo.AssertExpectations(t)
+	mockPlantRepo.AssertExpectations(t)
 }
