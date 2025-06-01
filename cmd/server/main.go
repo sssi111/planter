@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/anpanovv/planter/internal/api"
 	"github.com/anpanovv/planter/internal/db"
 	"github.com/anpanovv/planter/internal/middleware"
@@ -12,6 +13,13 @@ import (
 	"github.com/anpanovv/planter/internal/jobs"
 	"github.com/anpanovv/planter/internal/services"
 )
+
+func init() {
+	// Load environment variables from .env file
+	if err := godotenv.Load(); err != nil {
+		log.Println("No .env file found, using environment variables")
+	}
+}
 
 func main() {
 	// Initialize database
@@ -34,8 +42,10 @@ func main() {
 	notificationService := services.NewNotificationService(notificationRepo, plantRepo)
 
 	// Create and start background jobs
-	wateringJob := jobs.NewWateringNotificationsJob(notificationService, 1*time.Hour)
+	log.Println("Initializing watering notifications job...")
+	wateringJob := jobs.NewWateringNotificationsJob(notificationService, 1*time.Minute)
 	wateringJob.Start()
+	log.Println("Watering notifications job started successfully")
 	defer wateringJob.Stop()
 
 	// Create auth middleware first

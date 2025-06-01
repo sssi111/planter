@@ -37,11 +37,6 @@ func (m *MockNotificationRepository) GetUnreadWateringNotifications(ctx context.
     return args.Get(0).([]*models.Notification), args.Error(1)
 }
 
-// MockPlantRepository is a mock implementation of the PlantRepository interface
-type MockPlantRepository struct {
-    mock.Mock
-}
-
 func (m *MockPlantRepository) GetAllUserPlantsForWateringCheck(ctx context.Context) ([]*models.UserPlant, error) {
     args := m.Called(ctx)
     if args.Get(0) == nil {

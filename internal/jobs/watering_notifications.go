@@ -49,6 +49,23 @@ func (j *WateringNotificationsJob) Stop() {
 
 // checkAndCreateNotifications checks for plants that need watering and creates notifications
 func (j *WateringNotificationsJob) checkAndCreateNotifications() error {
-    ctx := context.Background()
-    return j.notificationService.CheckAndCreateWateringNotifications(ctx)
-} 
+	ctx := context.Background()
+	log.Println("Starting watering notifications check...")
+	
+	stats, err := j.notificationService.CheckAndCreateWateringNotifications(ctx)
+	if err != nil {
+		return err
+	}
+
+	log.Printf(
+		"Watering notifications check completed: "+
+			"users processed: %d, "+
+			"plants needing water: %d, "+
+			"notifications created: %d",
+		stats.UsersProcessed,
+		stats.PlantsNeedingWater,
+		stats.NotificationsCreated,
+	)
+
+	return nil
+}

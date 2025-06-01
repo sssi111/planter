@@ -1,13 +1,30 @@
+BEGIN;
+
 -- Create extension for UUID generation
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create enum types
-CREATE TYPE sunlight_level AS ENUM ('LOW', 'MEDIUM', 'HIGH');
-CREATE TYPE humidity_level AS ENUM ('LOW', 'MEDIUM', 'HIGH');
-CREATE TYPE language AS ENUM ('RUSSIAN', 'ENGLISH');
+DO $$
+BEGIN
+    -- Only create sunlight_level if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'sunlight_level') THEN
+        CREATE TYPE sunlight_level AS ENUM ('LOW', 'MEDIUM', 'HIGH');
+    END IF;
+
+    -- Only create humidity_level if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'humidity_level') THEN
+        CREATE TYPE humidity_level AS ENUM ('LOW', 'MEDIUM', 'HIGH');
+    END IF;
+
+    -- Only create language if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'language') THEN
+        CREATE TYPE language AS ENUM ('RUSSIAN', 'ENGLISH');
+    END IF;
+END
+$$;
 
 -- Create users table
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -20,7 +37,7 @@ CREATE TABLE users (
 );
 
 -- Create user_locations table
-CREATE TABLE user_locations (
+CREATE TABLE IF NOT EXISTS user_locations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     location VARCHAR(255) NOT NULL,
@@ -28,7 +45,7 @@ CREATE TABLE user_locations (
 );
 
 -- Create care_instructions table
-CREATE TABLE care_instructions (
+CREATE TABLE IF NOT EXISTS care_instructions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     watering_frequency INTEGER NOT NULL, -- in days
     sunlight sunlight_level NOT NULL,
@@ -43,7 +60,7 @@ CREATE TABLE care_instructions (
 );
 
 -- Create plants table
-CREATE TABLE plants (
+CREATE TABLE IF NOT EXISTS plants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     scientific_name VARCHAR(255) NOT NULL,
@@ -57,7 +74,7 @@ CREATE TABLE plants (
 );
 
 -- Create user_plants table (for owned plants)
-CREATE TABLE user_plants (
+CREATE TABLE IF NOT EXISTS user_plants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     plant_id UUID NOT NULL REFERENCES plants(id) ON DELETE CASCADE,
@@ -70,7 +87,7 @@ CREATE TABLE user_plants (
 );
 
 -- Create user_favorite_plants table
-CREATE TABLE user_favorite_plants (
+CREATE TABLE IF NOT EXISTS user_favorite_plants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     plant_id UUID NOT NULL REFERENCES plants(id) ON DELETE CASCADE,
@@ -79,7 +96,7 @@ CREATE TABLE user_favorite_plants (
 );
 
 -- Create shops table
-CREATE TABLE shops (
+CREATE TABLE IF NOT EXISTS shops (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     address TEXT NOT NULL,
@@ -90,7 +107,7 @@ CREATE TABLE shops (
 );
 
 -- Create shop_plants table
-CREATE TABLE shop_plants (
+CREATE TABLE IF NOT EXISTS shop_plants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     shop_id UUID NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
     plant_id UUID NOT NULL REFERENCES plants(id) ON DELETE CASCADE,
@@ -101,7 +118,7 @@ CREATE TABLE shop_plants (
 );
 
 -- Create special_offers table
-CREATE TABLE special_offers (
+CREATE TABLE IF NOT EXISTS special_offers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title VARCHAR(255) NOT NULL,
     description TEXT NOT NULL,
@@ -113,7 +130,7 @@ CREATE TABLE special_offers (
 );
 
 -- Create plant_questionnaire table
-CREATE TABLE plant_questionnaires (
+CREATE TABLE IF NOT EXISTS plant_questionnaires (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     sunlight_preference sunlight_level NOT NULL,
@@ -125,7 +142,7 @@ CREATE TABLE plant_questionnaires (
 );
 
 -- Create plant_recommendations table
-CREATE TABLE plant_recommendations (
+CREATE TABLE IF NOT EXISTS plant_recommendations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     questionnaire_id UUID NOT NULL REFERENCES plant_questionnaires(id) ON DELETE CASCADE,
     plant_id UUID NOT NULL REFERENCES plants(id) ON DELETE CASCADE,
@@ -136,7 +153,7 @@ CREATE TABLE plant_recommendations (
 );
 
 -- Create notifications table
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     plant_id UUID NOT NULL REFERENCES plants(id) ON DELETE CASCADE,
@@ -148,13 +165,15 @@ CREATE TABLE notifications (
 );
 
 -- Create index for faster notification queries
-CREATE INDEX idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX idx_notifications_created_at ON notifications(created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
 
 -- Create indexes
-CREATE INDEX idx_plants_name ON plants(name);
-CREATE INDEX idx_plants_scientific_name ON plants(scientific_name);
-CREATE INDEX idx_users_email ON users(email);
-CREATE INDEX idx_user_plants_user_id ON user_plants(user_id);
-CREATE INDEX idx_user_favorite_plants_user_id ON user_favorite_plants(user_id);
-CREATE INDEX idx_shop_plants_shop_id ON shop_plants(shop_id);
+CREATE INDEX IF NOT EXISTS idx_plants_name ON plants(name);
+CREATE INDEX IF NOT EXISTS idx_plants_scientific_name ON plants(scientific_name);
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_user_plants_user_id ON user_plants(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_favorite_plants_user_id ON user_favorite_plants(user_id);
+CREATE INDEX IF NOT EXISTS idx_shop_plants_shop_id ON shop_plants(shop_id);
+
+COMMIT;
