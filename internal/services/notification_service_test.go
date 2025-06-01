@@ -37,6 +37,19 @@ func (m *MockNotificationRepository) GetUnreadWateringNotifications(ctx context.
     return args.Get(0).([]*models.Notification), args.Error(1)
 }
 
+// MockPlantRepository is a mock implementation of the PlantRepository interface
+type MockPlantRepository struct {
+    mock.Mock
+}
+
+func (m *MockPlantRepository) GetAllUserPlantsForWateringCheck(ctx context.Context) ([]*models.UserPlant, error) {
+    args := m.Called(ctx)
+    if args.Get(0) == nil {
+        return nil, args.Error(1)
+    }
+    return args.Get(0).([]*models.UserPlant), args.Error(1)
+}
+
 func TestNotificationService_GetUserNotifications(t *testing.T) {
     // Create mocks
     mockNotificationRepo := new(MockNotificationRepository)
@@ -108,19 +121,24 @@ func TestNotificationService_CheckAndCreateWateringNotifications(t *testing.T) {
     ctx := context.Background()
     userID := uuid.New()
     nextWatering := time.Now().Add(-24 * time.Hour) // Plant needs watering
-    plants := []*models.Plant{
-        {
-            ID:           uuid.New(),
-            UserID:      userID,
-            Name:        "Test Plant",
-            NextWatering: &nextWatering,
+    
+    userPlant := &models.UserPlant{
+        ID:           uuid.New(),
+        UserID:       userID,
+        PlantID:      uuid.New(),
+        NextWatering: &nextWatering,
+        Plant: &models.Plant{
+            ID:   uuid.New(),
+            Name: "Test Plant",
         },
     }
 
+    userPlants := []*models.UserPlant{userPlant}
+
     // Set up expectations
-    mockPlantRepo.On("GetAllUserPlantsForWateringCheck", ctx).Return(plants, nil)
+    mockPlantRepo.On("GetAllUserPlantsForWateringCheck", ctx).Return(userPlants, nil)
     mockNotificationRepo.On("Create", ctx, mock.MatchedBy(func(n *models.Notification) bool {
-        return n.UserID == userID && n.PlantID == plants[0].ID && n.Type == models.NotificationTypeWatering
+        return n.UserID == userID && n.PlantID == userPlant.PlantID && n.Type == models.NotificationTypeWatering
     })).Return(nil)
 
     // Call the service
