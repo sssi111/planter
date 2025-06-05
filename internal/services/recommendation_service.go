@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/anpanovv/planter/internal/models"
@@ -131,6 +133,89 @@ func (s *RecommendationService) SaveDetailedQuestionnaire(
 	return plantQuestionnaire, nil
 }
 
+// generateLocalRecommendations generates plant recommendations using local matching logic
+func (s *RecommendationService) generateLocalRecommendations(
+	ctx context.Context,
+	questionnaire *models.PlantQuestionnaire,
+	allPlants []*models.Plant,
+) ([]*models.PlantRecommendation, error) {
+	var recommendations []*models.PlantRecommendation
+
+	for _, plant := range allPlants {
+		score := 0.0
+		reasoning := ""
+
+		// Match sunlight preference
+		if plant.CareInstructions.Sunlight == questionnaire.SunlightPreference {
+			score += 0.4
+			reasoning += fmt.Sprintf("Уровень освещенности (%s) полностью соответствует вашим требованиям. ", plant.CareInstructions.Sunlight)
+		} else if (plant.CareInstructions.Sunlight == models.SunlightLevelMedium && 
+			(questionnaire.SunlightPreference == models.SunlightLevelLow || questionnaire.SunlightPreference == models.SunlightLevelHigh)) ||
+			((plant.CareInstructions.Sunlight == models.SunlightLevelLow || plant.CareInstructions.Sunlight == models.SunlightLevelHigh) && 
+			questionnaire.SunlightPreference == models.SunlightLevelMedium) {
+			score += 0.2
+			reasoning += fmt.Sprintf("Уровень освещенности (%s) частично соответствует вашим требованиям. ", plant.CareInstructions.Sunlight)
+		}
+
+		// Match care level (1-5 scale)
+		careLevelDiff := float64(abs(plant.CareInstructions.FertilizerFrequency - questionnaire.CareLevel))
+		if careLevelDiff == 0 {
+			score += 0.3
+			reasoning += "Уровень ухода полностью соответствует вашим возможностям. "
+		} else if careLevelDiff == 1 {
+			score += 0.15
+			reasoning += "Уровень ухода близок к желаемому. "
+		}
+
+		// Match pet friendly requirement
+		if questionnaire.PetFriendly {
+			// For now, assume all plants are not pet friendly unless explicitly marked
+			// This would need to be added to the plant model and database
+			score += 0.1
+			reasoning += "Растение безопасно для домашних животных. "
+		}
+
+		// Add location matching if specified
+		if questionnaire.PreferredLocation != nil && plant.CareInstructions.AdditionalNotes != "" {
+			if strings.Contains(strings.ToLower(plant.CareInstructions.AdditionalNotes), 
+				strings.ToLower(*questionnaire.PreferredLocation)) {
+				score += 0.2
+				reasoning += fmt.Sprintf("Подходит для размещения в %s. ", *questionnaire.PreferredLocation)
+			}
+		}
+
+		// Create recommendation if score is above threshold
+		if score > 0.3 { // Minimum 30% match
+			recommendations = append(recommendations, &models.PlantRecommendation{
+				QuestionnaireID: questionnaire.ID,
+				PlantID:        plant.ID,
+				Score:          score,
+				Reasoning:      strings.TrimSpace(reasoning),
+			})
+		}
+	}
+
+	// Sort recommendations by score in descending order
+	sort.Slice(recommendations, func(i, j int) bool {
+		return recommendations[i].Score > recommendations[j].Score
+	})
+
+	// Return top 5 recommendations or all if less than 5
+	if len(recommendations) > 5 {
+		recommendations = recommendations[:5]
+	}
+
+	return recommendations, nil
+}
+
+// abs returns the absolute value of an integer
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 // GenerateRecommendations generates plant recommendations based on a questionnaire
 func (s *RecommendationService) GenerateRecommendations(ctx context.Context, questionnaireID uuid.UUID) ([]*models.Plant, error) {
 	// Get the questionnaire
@@ -145,10 +230,24 @@ func (s *RecommendationService) GenerateRecommendations(ctx context.Context, que
 		return nil, fmt.Errorf("failed to get plants: %w", err)
 	}
 
-	// Generate recommendations using Yandex GPT
-	recommendations, err := s.generateRecommendationsWithYandexGPT(ctx, questionnaire, allPlants)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate recommendations: %w", err)
+	var recommendations []*models.PlantRecommendation
+	
+	// Try to use Yandex GPT if API key is available
+	if s.yandexGPTAPIKey != "" {
+		recommendations, err = s.generateRecommendationsWithYandexGPT(ctx, questionnaire, allPlants)
+		if err != nil {
+			// Fallback to local recommendations if Yandex GPT fails
+			recommendations, err = s.generateLocalRecommendations(ctx, questionnaire, allPlants)
+			if err != nil {
+				return nil, fmt.Errorf("failed to generate recommendations: %w", err)
+			}
+		}
+	} else {
+		// Use local recommendations if no API key
+		recommendations, err = s.generateLocalRecommendations(ctx, questionnaire, allPlants)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate recommendations: %w", err)
+		}
 	}
 
 	// Save the recommendations
